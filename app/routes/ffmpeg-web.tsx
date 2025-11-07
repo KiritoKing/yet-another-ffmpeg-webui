@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
 import { FFmpegService, type FFmpegMode } from '../services/ffmpegService';
 import { useCommandStore } from '../store/commandStore';
 import { useLogStore } from '../store/logStore';
@@ -28,7 +29,11 @@ import { Loader2Icon, DownloadIcon, UploadIcon, PlusIcon, CodeIcon, PlayIcon } f
 export default function FFmpegWeb() {
   const [isClient, setIsClient] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [useMultiThread, setUseMultiThread] = useState(false);
+  const [loading, setLoading] = useState(false);
+  // 默认使用多线程模式（如果支持）
+  const [useMultiThread, setUseMultiThread] = useState(
+    typeof SharedArrayBuffer !== 'undefined'
+  );
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState('就绪');
@@ -59,7 +64,9 @@ export default function FFmpegWeb() {
     if (!isClient) return;
 
     if (useMultiThread && !FFmpegService.isMultiThreadSupported()) {
-      addLog('您的浏览器不支持多线程模式，自动切换到单线程模式', 'warning');
+      const message = '您的浏览器不支持多线程模式，自动切换到单线程模式';
+      addLog(message, 'warning');
+      toast.warning(message);
       setUseMultiThread(false);
       return;
     }
@@ -67,6 +74,7 @@ export default function FFmpegWeb() {
     const mode: FFmpegMode = useMultiThread ? 'multi' : 'single';
 
     try {
+      setLoading(true);
       setCurrentStep('正在加载 FFmpeg...');
       setProgress(0.1);
       addLog(`开始加载 FFmpeg ${mode === 'multi' ? '多线程' : '单线程'}版本`, 'info');
@@ -91,11 +99,15 @@ export default function FFmpegWeb() {
       setProgress(1);
       setCurrentStep('FFmpeg 已就绪');
       addLog('FFmpeg 加载成功！🚀', 'success');
+      toast.success('FFmpeg 加载成功！');
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       addLog(`加载失败: ${errorMsg}`, 'error');
+      toast.error(`加载失败: ${errorMsg}`);
       setCurrentStep('加载失败');
       setProgress(0);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -103,7 +115,9 @@ export default function FFmpegWeb() {
     const service = ffmpegServiceRef.current;
 
     if (!loaded || !service || !selectedPreset) {
-      addLog('请先加载 FFmpeg 并选择命令', 'warning');
+      const message = '请先加载 FFmpeg 并选择命令';
+      addLog(message, 'warning');
+      toast.warning(message);
       return;
     }
 
@@ -113,10 +127,9 @@ export default function FFmpegWeb() {
     );
 
     if (missingFiles.length > 0) {
-      addLog(
-        `请先选择以下文件: ${missingFiles.map((f) => f.name).join(', ')}`,
-        'warning'
-      );
+      const message = `请先选择以下文件: ${missingFiles.map((f) => f.name).join(', ')}`;
+      addLog(message, 'warning');
+      toast.warning(message);
       return;
     }
 
@@ -150,10 +163,12 @@ export default function FFmpegWeb() {
       setProgress(1);
       setCurrentStep('执行成功！');
       addLog('命令执行成功！🎉', 'success');
+      toast.success('命令执行成功！🎉');
     } catch (error) {
       console.error('执行错误:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       addLog(`执行失败: ${errorMessage}`, 'error');
+      toast.error(`执行失败: ${errorMessage}`);
       setCurrentStep('执行失败');
     } finally {
       setProcessing(false);
@@ -169,17 +184,29 @@ export default function FFmpegWeb() {
     const json = exportPresetsToJSON(exportPresets());
     downloadJSON('ffmpeg-presets.json', json);
     addLog('已导出所有命令预设', 'success');
+    toast.success('已导出所有命令预设');
   };
 
   const handleImportJSON = async () => {
     try {
       const json = await uploadJSON();
-      const importedPresets = importPresetsFromJSON(json);
-      importPresets(importedPresets);
-      addLog(`成功导入 ${importedPresets.length} 个命令预设`, 'success');
+      const result = importPresetsFromJSON(json);
+      
+      if (result.isSingle) {
+        // 单个命令
+        importPresets(result.presets);
+        addLog(`成功导入命令: ${result.presets[0].name}`, 'success');
+        toast.success(`成功导入命令: ${result.presets[0].name}`);
+      } else {
+        // 多个命令
+        importPresets(result.presets);
+        addLog(`成功导入 ${result.presets.length} 个命令预设`, 'success');
+        toast.success(`成功导入 ${result.presets.length} 个命令预设`);
+      }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       addLog(`导入失败: ${errorMsg}`, 'error');
+      toast.error(`导入失败: ${errorMsg}`);
     }
   };
 
@@ -187,6 +214,7 @@ export default function FFmpegWeb() {
     const json = exportPresetToJSON(preset);
     downloadJSON(`${preset.name}.json`, json);
     addLog(`已导出命令: ${preset.name}`, 'success');
+    toast.success(`已导出命令: ${preset.name}`);
   };
 
   const handleCLIImport = () => {
@@ -196,9 +224,11 @@ export default function FFmpegWeb() {
       setCliCommand('');
       setShowCLIImport(false);
       addLog('从 CLI 导入命令成功', 'success');
+      toast.success('从 CLI 导入命令成功');
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       addLog(`CLI 解析失败: ${errorMsg}`, 'error');
+      toast.error(`CLI 解析失败: ${errorMsg}`);
     }
   };
 
@@ -208,6 +238,7 @@ export default function FFmpegWeb() {
     a.href = outputUrl;
     a.download = selectedPreset?.outputFileName || 'output.mp4';
     a.click();
+    toast.success('文件下载成功');
   };
 
   if (!isClient) {
@@ -233,17 +264,25 @@ export default function FFmpegWeb() {
             </div>
 
             <div className="flex items-center gap-2">
-              {!loaded && (
-                <ModeSelect
-                  useMultiThread={useMultiThread}
-                  onModeChange={setUseMultiThread}
-                />
-              )}
+              <ModeSelect
+                useMultiThread={useMultiThread}
+                onModeChange={setUseMultiThread}
+                disabled={loaded}
+              />
 
               {!loaded ? (
-                <Button onClick={loadFFmpeg} size="lg">
-                  <PlayIcon className="mr-2" />
-                  加载 FFmpeg
+                <Button onClick={loadFFmpeg} size="lg" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader2Icon className="mr-2 animate-spin" />
+                      加载中...
+                    </>
+                  ) : (
+                    <>
+                      <PlayIcon className="mr-2" />
+                      加载 FFmpeg
+                    </>
+                  )}
                 </Button>
               ) : (
                 <>
@@ -467,6 +506,14 @@ export default function FFmpegWeb() {
       {/* 编辑器模态框 */}
       <Dialog open={showEditor} onOpenChange={setShowEditor}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingPreset ? '编辑命令' : '新建命令'}
+            </DialogTitle>
+            <DialogDescription>
+              配置 FFmpeg 命令参数和输入输出文件
+            </DialogDescription>
+          </DialogHeader>
           <CommandEditor
             preset={editingPreset || undefined}
             onSave={(preset) => {

@@ -127,7 +127,11 @@ export function ProgressLogViewer({
                       }`}
                     >
                       <span className="text-muted-foreground select-none shrink-0 tabular-nums">
-                        {new Date(log.timestamp).toLocaleTimeString()}
+                        {new Date(log.timestamp).toLocaleTimeString('zh-CN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        })}
                       </span>
                       <span className="break-all">{log.message}</span>
                     </div>

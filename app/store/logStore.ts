@@ -18,7 +18,7 @@ export const useLogStore = create<LogStore>((set) => ({
         ...state.logs,
         {
           id: state.logIdCounter,
-          timestamp: new Date().toLocaleTimeString("zh-CN"),
+          timestamp: new Date().toISOString(),
           type,
           message,
         },

@@ -12,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { XIcon, PlusIcon } from 'lucide-react';
@@ -72,28 +71,18 @@ export function CommandEditor({ preset, onSave, onCancel }: CommandEditorProps) 
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="text-2xl">
-          {preset ? '编辑命令' : '新建命令'}
-        </CardTitle>
-        <CardDescription>
-          配置 FFmpeg 命令参数和输入输出文件
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className="space-y-6">
-        {/* 错误提示 */}
-        {errors.length > 0 && (
-          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-            <h4 className="font-semibold text-destructive mb-2">请修正以下错误：</h4>
-            <ul className="list-disc list-inside text-sm text-destructive/90 space-y-1">
-              {errors.map((error, index) => (
-                <li key={index}>{error}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+    <div className="space-y-6">
+      {/* 错误提示 */}
+      {errors.length > 0 && (
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+          <h4 className="font-semibold text-destructive mb-2">请修正以下错误：</h4>
+          <ul className="list-disc list-inside text-sm text-destructive/90 space-y-1">
+            {errors.map((error, index) => (
+              <li key={index}>{error}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
         {/* 基本信息 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -166,14 +155,14 @@ export function CommandEditor({ preset, onSave, onCancel }: CommandEditorProps) 
                   className="flex-1"
                 />
                 <Select
-                  value={file.pattern || ''}
+                  value={file.pattern || '*/*'}
                   onValueChange={(value) => updateInputFile(index, 'pattern', value)}
                 >
                   <SelectTrigger className="w-32">
                     <SelectValue placeholder="文件类型" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">任意文件</SelectItem>
+                    <SelectItem value="*/*">任意文件</SelectItem>
                     <SelectItem value="video/*">视频</SelectItem>
                     <SelectItem value="audio/*">音频</SelectItem>
                     <SelectItem value="image/*">图片</SelectItem>
@@ -229,23 +218,22 @@ export function CommandEditor({ preset, onSave, onCancel }: CommandEditorProps) 
 
         <Separator />
 
-        {/* 按钮 */}
-        <div className="flex justify-end gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-          >
-            取消
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSave}
-          >
-            保存
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      {/* 按钮 */}
+      <div className="flex justify-end gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+        >
+          取消
+        </Button>
+        <Button
+          type="button"
+          onClick={handleSave}
+        >
+          保存
+        </Button>
+      </div>
+    </div>
   );
 }

@@ -71,20 +71,22 @@ export function exportPresetsToJSON(presets: CommandPreset[]): string {
 }
 
 /**
- * 从 JSON 导入命令预设
+ * 从 JSON 导入命令预设（支持单个或多个）
  */
-export function importPresetsFromJSON(json: string): CommandPreset[] {
+export function importPresetsFromJSON(json: string): {
+  presets: CommandPreset[];
+  isSingle: boolean;
+} {
   try {
     const data = JSON.parse(json);
     
-    // 验证数据格式
-    if (!Array.isArray(data)) {
-      throw new Error('JSON 必须是数组格式');
-    }
+    // 判断是单个命令还是多个命令
+    const isSingle = !Array.isArray(data);
+    const items = isSingle ? [data] : data;
 
     const presets: CommandPreset[] = [];
     
-    for (const item of data) {
+    for (const item of items) {
       // 验证必需字段
       if (!item.name || !item.ffmpegArgs || !Array.isArray(item.ffmpegArgs)) {
         console.warn('跳过无效的预设:', item);
@@ -105,7 +107,11 @@ export function importPresetsFromJSON(json: string): CommandPreset[] {
       });
     }
 
-    return presets;
+    if (presets.length === 0) {
+      throw new Error('JSON 中没有有效的命令预设');
+    }
+
+    return { presets, isSingle };
   } catch (error) {
     throw new Error(`JSON 解析失败: ${error instanceof Error ? error.message : String(error)}`);
   }
