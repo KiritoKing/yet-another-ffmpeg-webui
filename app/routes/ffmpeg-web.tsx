@@ -13,6 +13,8 @@ import {
   uploadJSON,
   replaceTemplateVariables,
   getDefaultFormValues,
+  validateTemplateUsage,
+  extractTemplateVariables,
 } from '../utils/commandUtils';
 import { CommandList } from '../components/CommandList';
 import { CommandEditor } from '../components/CommandEditor';
@@ -224,6 +226,19 @@ export default function FFmpegWeb() {
     try {
       const json = await uploadJSON();
       const result = importPresetsFromJSON(json);
+      // 对每个导入的命令执行模板校验（忽略无 formSchema 的情况）
+      const invalid: string[] = [];
+      result.presets.forEach(p => {
+        if (p.formSchema && p.formSchema.length) {
+          const v = validateTemplateUsage({ ffmpegArgs: p.ffmpegArgs, formSchema: p.formSchema });
+          if (v.unknown.length) {
+            invalid.push(`${p.name}: 未声明变量(${v.unknown.join(',')})`);
+          }
+        }
+      });
+      if (invalid.length) {
+        throw new Error(`以下命令存在未声明的模板变量:\n${invalid.join('\n')}`);
+      }
       
       if (result.isSingle) {
         // 单个命令
@@ -265,9 +280,17 @@ export default function FFmpegWeb() {
       setCliCommand('');
       
       // 打开编辑器让用户完善信息
-      setEditingPreset(tempPreset as CommandPreset);
+  setEditingPreset(tempPreset as CommandPreset);
       setShowEditor(true);
       
+      // 如果 CLI 中包含模板变量但未声明表单字段，给出提示
+      const usedVars = extractTemplateVariables((parsed.ffmpegArgs || []) as string[]);
+      if (usedVars.length > 0) {
+        const msg = `检测到模板变量: ${usedVars.join(', ')}，请在右侧“表单字段配置”中添加相应字段，并保持名称一致。`;
+        addLog(msg, 'warning');
+        toast.warning(msg);
+      }
+
       addLog('已解析 CLI 命令，请完善命令信息', 'info');
       toast.info('请完善命令信息后保存');
     } catch (error) {
@@ -625,21 +648,22 @@ export default function FFmpegWeb() {
 
       {/* 编辑器模态框 */}
       <Dialog open={showEditor} onOpenChange={setShowEditor}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingPreset 
-                ? editingPreset.id.startsWith('temp_') 
-                  ? '完善 CLI 导入的命令' 
-                  : '编辑命令' 
-                : '新建命令'}
-            </DialogTitle>
-            <DialogDescription>
-              {editingPreset?.id.startsWith('temp_')
-                ? '已从 CLI 命令解析基本信息，请完善命令名称、描述等详细信息'
-                : '配置 FFmpeg 命令参数和输入输出文件'}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-[95vw] w-[95vw] max-h-[95vh]">
+          <div className="overflow-y-auto max-h-[calc(95vh-8rem)] pr-2">
+            <DialogHeader className="mb-6">
+              <DialogTitle>
+                {editingPreset 
+                  ? editingPreset.id.startsWith('temp_') 
+                    ? '完善 CLI 导入的命令' 
+                    : '编辑命令' 
+                  : '新建命令'}
+              </DialogTitle>
+              <DialogDescription>
+                {editingPreset?.id.startsWith('temp_')
+                  ? '已从 CLI 命令解析基本信息，请完善命令名称、描述等详细信息'
+                  : '配置 FFmpeg 命令参数和输入输出文件'}
+              </DialogDescription>
+            </DialogHeader>
           <CommandEditor
             preset={editingPreset || undefined}
             onSave={(preset) => {
@@ -662,6 +686,7 @@ export default function FFmpegWeb() {
               setEditingPreset(null);
             }}
           />
+          </div>
         </DialogContent>
       </Dialog>
 

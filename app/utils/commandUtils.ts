@@ -1,4 +1,4 @@
-import type { CommandPreset } from '../types/command';
+import type { CommandPreset, FormField } from '../types/command';
 
 /**
  * 解析 FFmpeg CLI 命令为 JSON 格式
@@ -53,13 +53,77 @@ export function parseCLICommand(cliCommand: string): Partial<CommandPreset> {
     cleanCommand.length > 100 ? '...' : ''
   }`;
 
+  // 智能识别模板变量与表单字段
+  const formSchema: FormField[] = [];
+  const transformedArgs = [...args];
+
+  // scale=WxH 检测
+  for (let i = 0; i < transformedArgs.length; i++) {
+    const a = transformedArgs[i];
+    const m = /^scale=(\d+):(\d+)(.*)$/.exec(a);
+    if (m) {
+      const [, w, h, rest] = m;
+      formSchema.push({ name: 'width', label: '宽度', type: 'number', defaultValue: Number(w), min: 16, max: 7680, step: 2, description: '视频宽度'});
+      formSchema.push({ name: 'height', label: '高度', type: 'number', defaultValue: Number(h), min: 16, max: 4320, step: 2, description: '视频高度'});
+      transformedArgs[i] = `scale={{width}}:{{height}}${rest}`;
+    }
+  }
+
+  // -b:v <number>k 码率
+  for (let i = 0; i < transformedArgs.length - 1; i++) {
+    if (transformedArgs[i] === '-b:v') {
+      const val = transformedArgs[i + 1];
+      const m = /(\d+)(k|m)?$/i.exec(val);
+      if (m) {
+        const num = Number(m[1]);
+        formSchema.push({ name: 'bitrate', label: '视频码率(kbps)', type: 'slider', defaultValue: num, min: 100, max: 50000, step: 100, description: '视频码率影响文件大小与质量'});
+        transformedArgs[i + 1] = '{{bitrate}}k';
+      }
+    }
+  }
+
+  // -crf <number>
+  for (let i = 0; i < transformedArgs.length - 1; i++) {
+    if (transformedArgs[i] === '-crf') {
+      const val = transformedArgs[i + 1];
+      const num = Number(val);
+      if (!isNaN(num)) {
+        formSchema.push({ name: 'quality', label: 'CRF 质量', type: 'slider', defaultValue: num, min: 10, max: 40, step: 1, description: 'CRF 值越低质量越高' });
+        transformedArgs[i + 1] = '{{quality}}';
+      }
+    }
+  }
+
+  // transpose=0|1|2|3
+  for (let i = 0; i < transformedArgs.length; i++) {
+    const a = transformedArgs[i];
+    const mt = /^transpose=(\d)$/.exec(a);
+    if (mt) {
+      const val = mt[1];
+      formSchema.push({
+        name: 'direction',
+        label: '旋转方向',
+        type: 'select',
+        defaultValue: val,
+        options: [
+          { label: '逆时针90°+垂直翻转', value: '0' },
+          { label: '顺时针90°', value: '1' },
+          { label: '逆时针90°', value: '2' },
+          { label: '顺时针90°+垂直翻转', value: '3' },
+        ],
+      });
+      transformedArgs[i] = 'transpose={{direction}}';
+    }
+  }
+
   return {
     name,
     description,
     category: '自定义',
-    ffmpegArgs: args,
+    ffmpegArgs: transformedArgs,
     inputFiles,
     outputFileName,
+    formSchema: formSchema.length ? formSchema : undefined,
   };
 }
 
@@ -102,6 +166,7 @@ export function importPresetsFromJSON(json: string): {
         inputFiles: item.inputFiles || [{ name: 'input.mp4' }],
         outputFileName: item.outputFileName || 'output.mp4',
         outputMimeType: item.outputMimeType,
+        formSchema: item.formSchema,
         createdAt: item.createdAt || Date.now(),
         updatedAt: item.updatedAt || Date.now(),
       });
@@ -189,6 +254,46 @@ export function validatePreset(preset: Partial<CommandPreset>): string[] {
   }
 
   return errors;
+}
+
+/**
+ * 提取命令参数中的模板变量名列表，例如 {{foo}} -> ['foo']
+ */
+export function extractTemplateVariables(args: string[]): string[] {
+  const vars = new Set<string>();
+  const re = /\{\{(\w+)\}\}/g;
+  for (const a of args) {
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(a))) {
+      vars.add(m[1]);
+    }
+  }
+  return Array.from(vars);
+}
+
+/**
+ * 校验模板变量使用情况：
+ * - unknown: 命令中使用但未在 formSchema 中声明
+ * - unused: 在 formSchema 中声明但命令中未使用
+ */
+export function validateTemplateUsage(preset: Pick<CommandPreset, 'ffmpegArgs' | 'formSchema'>): {
+  unknown: string[];
+  unused: string[];
+} {
+  const used = new Set(extractTemplateVariables(preset.ffmpegArgs));
+  const declared = new Set((preset.formSchema || []).map(f => f.name));
+
+  const unknown: string[] = [];
+  used.forEach((v) => {
+    if (!declared.has(v)) unknown.push(v);
+  });
+
+  const unused: string[] = [];
+  declared.forEach((v) => {
+    if (!used.has(v)) unused.push(v);
+  });
+
+  return { unknown, unused };
 }
 
 /**

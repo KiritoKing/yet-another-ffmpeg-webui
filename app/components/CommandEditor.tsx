@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { CommandPreset } from '../types/command';
-import { validatePreset } from '../utils/commandUtils';
+import type { CommandPreset, FormField } from '../types/command';
+import { validatePreset, extractTemplateVariables, validateTemplateUsage } from '../utils/commandUtils';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
@@ -15,6 +15,8 @@ import {
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { XIcon, PlusIcon } from 'lucide-react';
+import { ArgsEditor } from './ArgsEditor';
+import { FormSchemaEditor } from './FormSchemaEditor';
 
 interface CommandEditorProps {
   preset?: CommandPreset;
@@ -31,11 +33,14 @@ export function CommandEditor({ preset, onSave, onCancel }: CommandEditorProps) 
     preset?.inputFiles || [{ name: 'input.mp4', pattern: 'video/*' }]
   );
   const [outputFileName, setOutputFileName] = useState(preset?.outputFileName || 'output.mp4');
+  // 表单编辑器相关状态
+  const [showFormEditor, setShowFormEditor] = useState(false);
+  const [formSchema, setFormSchema] = useState<FormField[]>(preset?.formSchema || []);
+  const [templateErrors, setTemplateErrors] = useState<{unknown: string[]; unused: string[]}>({unknown: [], unused: []});
   const [errors, setErrors] = useState<string[]>([]);
 
   const handleSave = () => {
     const args = ffmpegArgs.trim().split(/\s+/).filter(Boolean);
-    
     const newPreset = {
       name,
       description,
@@ -43,14 +48,18 @@ export function CommandEditor({ preset, onSave, onCancel }: CommandEditorProps) 
       ffmpegArgs: args,
       inputFiles,
       outputFileName,
+      formSchema: formSchema.length ? formSchema : undefined,
     };
 
     const validationErrors = validatePreset(newPreset);
+    const { unknown } = validateTemplateUsage({ ffmpegArgs: newPreset.ffmpegArgs, formSchema: newPreset.formSchema });
+    if (unknown.length > 0) {
+      validationErrors.push(`存在未声明的模板变量: ${unknown.join(', ')}`);
+    }
     if (validationErrors.length > 0) {
       setErrors(validationErrors);
       return;
     }
-
     onSave(newPreset);
   };
 
@@ -70,19 +79,45 @@ export function CommandEditor({ preset, onSave, onCancel }: CommandEditorProps) 
     );
   };
 
+  // 同步并校验模板变量使用情况
+  useEffect(() => {
+    const argsArray = ffmpegArgs.trim().split(/\s+/).filter(Boolean);
+    const v = validateTemplateUsage({ ffmpegArgs: argsArray, formSchema });
+    setTemplateErrors(v);
+  }, [ffmpegArgs, formSchema]);
+
+  const declaredVars = formSchema.map(f => f.name);
+  const usedVars = extractTemplateVariables(ffmpegArgs.trim().split(/\s+/).filter(Boolean));
+  const undeclaredUsed = usedVars.filter(v => !declaredVars.includes(v));
+  const unusedDeclared = declaredVars.filter(v => !usedVars.includes(v));
+
   return (
-    <div className="space-y-6">
-      {/* 错误提示 */}
-      {errors.length > 0 && (
-        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-          <h4 className="font-semibold text-destructive mb-2">请修正以下错误：</h4>
-          <ul className="list-disc list-inside text-sm text-destructive/90 space-y-1">
-            {errors.map((error, index) => (
-              <li key={index}>{error}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+    <div className={showFormEditor ? 'md:grid md:grid-cols-[1fr_380px] gap-6' : 'space-y-6'}>
+      {/* 左侧：基础配置 + 命令参数 */}
+      <div className="space-y-6">
+        {/* 错误提示 */}
+        {errors.length > 0 && (
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+            <h4 className="font-semibold text-destructive mb-2">请修正以下错误：</h4>
+            <ul className="list-disc list-inside text-sm text-destructive/90 space-y-1">
+              {errors.map((error, index) => (
+                <li key={index}>{error}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* 模板变量使用状态提示 */}
+        {(undeclaredUsed.length > 0 || unusedDeclared.length > 0) && (
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 space-y-1 text-xs">
+            {undeclaredUsed.length > 0 && (
+              <p className="text-amber-700 dark:text-amber-300">未声明的变量: {undeclaredUsed.join(', ')}</p>
+            )}
+            {unusedDeclared.length > 0 && (
+              <p className="text-amber-700 dark:text-amber-300">未使用的字段: {unusedDeclared.join(', ')}</p>
+            )}
+          </div>
+        )}
 
         {/* 基本信息 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -121,7 +156,7 @@ export function CommandEditor({ preset, onSave, onCancel }: CommandEditorProps) 
           <Textarea
             id="description"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
             rows={2}
             placeholder="简要描述此命令的功能..."
           />
@@ -187,20 +222,20 @@ export function CommandEditor({ preset, onSave, onCancel }: CommandEditorProps) 
 
         {/* FFmpeg 参数 */}
         <div className="space-y-2">
-          <Label htmlFor="ffmpegArgs">
-            FFmpeg 参数 <Badge variant="destructive" className="ml-1">必填</Badge>
-          </Label>
-          <Textarea
-            id="ffmpegArgs"
+          <div className="flex items-center justify-between">
+            <Label htmlFor="ffmpegArgs" className="flex items-center gap-2">
+              FFmpeg 参数 <Badge variant="destructive">必填</Badge>
+            </Label>
+            <Button variant="outline" size="sm" type="button" onClick={() => setShowFormEditor(s => !s)}>
+              {showFormEditor ? '隐藏表单编辑器' : '显示表单编辑器'}
+            </Button>
+          </div>
+          <ArgsEditor
             value={ffmpegArgs}
-            onChange={(e) => setFfmpegArgs(e.target.value)}
-            rows={4}
-            className="font-mono text-sm"
-            placeholder="-i input.mp4 -c copy output.mp4"
+            onChange={setFfmpegArgs}
+            variables={declaredVars}
+            highlight
           />
-          <p className="text-xs text-muted-foreground">
-            输入完整的 FFmpeg 命令参数（空格分隔）
-          </p>
         </div>
 
         {/* 输出文件 */}
@@ -218,22 +253,34 @@ export function CommandEditor({ preset, onSave, onCancel }: CommandEditorProps) 
 
         <Separator />
 
-      {/* 按钮 */}
-      <div className="flex justify-end gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-        >
-          取消
-        </Button>
-        <Button
-          type="button"
-          onClick={handleSave}
-        >
-          保存
-        </Button>
+        {/* 按钮 */}
+        <div className="flex justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+          >
+            取消
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSave}
+          >
+            保存
+          </Button>
+        </div>
       </div>
+
+      {/* 右侧：表单字段编辑器固定列 */}
+      {showFormEditor && (
+        <div className="space-y-4 h-full overflow-y-auto pb-4">
+          <FormSchemaEditor
+            schema={formSchema}
+            onChange={setFormSchema}
+            usedVariables={usedVars}
+          />
+        </div>
+      )}
     </div>
   );
 }
