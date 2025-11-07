@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CommandPanel } from "../components/CommandPanel";
 import { ExecutionPanel } from "../components/ExecutionPanel";
 import {
@@ -9,7 +9,15 @@ import {
 } from "../components/FFmpegDialogs";
 import { FFmpegToolbar } from "../components/FFmpegToolbar";
 import { InitializationDialog } from "../components/InitializationDialog";
+import { QueueControlPanel } from "../components/QueueControlPanel";
+import { TaskHistoryViewer } from "../components/TaskHistoryViewer";
 import { Card } from "../components/ui/card";
+import {
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "../components/ui/tabs";
 import { useFFmpegWeb } from "../hooks/useFFmpegWeb";
 import { useCommandStore } from "../store/commandStore";
 import { useFFmpegWebStore } from "../store/ffmpegWebStore";
@@ -75,7 +83,11 @@ export default function FFmpegWeb() {
 		updatePreset,
 		deletePreset,
 		computeDynamicOutputName,
+		taskManager,
 	} = useFFmpegWeb();
+
+	// 本地状态 - 活动标签页
+	const [activeTab, setActiveTab] = useState<string>("execute");
 
 	// 初始化分类筛选（全选）
 	// biome-ignore lint/correctness/useExhaustiveDependencies: setSelectedCategories 是稳定的 zustand setter
@@ -229,23 +241,56 @@ export default function FFmpegWeb() {
 							/>
 						</div>
 
-						{/* 右侧：执行区域 */}
+						{/* 右侧：标签页区域 */}
 						<div className="lg:col-span-2">
-							<ExecutionPanel
-								selectedPreset={selectedPreset}
-								formValues={formValues}
-								processing={processing}
-								progress={progress}
-								currentStep={currentStep}
-								outputUrl={outputUrl}
-								copiedCommand={copiedCommand}
-								onFormChange={setFormValues}
-								onExecute={executeCommand}
-								onAbort={handleAbortTask}
-								onCopyCommand={handleCopyCommand}
-								onDownload={handleDownload}
-								computeOutputName={computeDynamicOutputName}
-							/>
+							<Tabs value={activeTab} onValueChange={setActiveTab}>
+								<TabsList className="grid w-full grid-cols-3">
+									<TabsTrigger value="execute">执行</TabsTrigger>
+									<TabsTrigger value="queue">队列</TabsTrigger>
+									<TabsTrigger value="history">历史</TabsTrigger>
+								</TabsList>
+
+								{/* 执行面板 */}
+								<TabsContent value="execute">
+									<ExecutionPanel
+										selectedPreset={selectedPreset}
+										formValues={formValues}
+										processing={processing}
+										progress={progress}
+										currentStep={currentStep}
+										outputUrl={outputUrl}
+										copiedCommand={copiedCommand}
+										onFormChange={setFormValues}
+										onExecute={executeCommand}
+										onAbort={handleAbortTask}
+										onCopyCommand={handleCopyCommand}
+										onDownload={handleDownload}
+										computeOutputName={computeDynamicOutputName}
+									/>
+								</TabsContent>
+
+								{/* 队列控制面板 */}
+								<TabsContent value="queue">
+									<QueueControlPanel
+										queue={taskManager.queue}
+										executingTasks={[]}
+										isProcessing={taskManager.isProcessingQueue}
+										batchSize={taskManager.queueConfig.batchSize}
+										onStart={taskManager.startQueue}
+										onStop={taskManager.stopQueue}
+										onClear={taskManager.clearQueue}
+										onRemoveTask={taskManager.removeFromQueue}
+										onBatchSizeChange={(size) =>
+											taskManager.setQueueConfig({ batchSize: size })
+										}
+									/>
+								</TabsContent>
+
+								{/* 任务历史查看器 */}
+								<TabsContent value="history">
+									<TaskHistoryViewer />
+								</TabsContent>
+							</Tabs>
 						</div>
 					</div>
 				) : (
