@@ -10,6 +10,12 @@ import {
 import type { Route } from "./+types/root";
 import "./app.css";
 
+// 添加 SharedArrayBuffer 所需的安全头
+export const headers: Route.HeadersFunction = () => ({
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Embedder-Policy": "require-corp",
+});
+
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
