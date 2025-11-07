@@ -25,6 +25,7 @@ ffmpeg-easy/
 │   │   ├── LogViewer.tsx       # 日志查看器（shadcn/ui）
 │   │   ├── ModeSelect.tsx      # 运行模式下拉选择器（shadcn/ui）
 │   │   ├── VideoPlayer.tsx     # 视频播放器组件（shadcn/ui）
+│   │   ├── DynamicForm.tsx     # 动态表单组件（基于 JSON Schema）
 │   │   └── ui/            # shadcn/ui 组件库
 │   │       ├── button.tsx
 │   │       ├── card.tsx
@@ -37,6 +38,7 @@ ffmpeg-easy/
 │   │       ├── textarea.tsx
 │   │       ├── separator.tsx
 │   │       ├── collapsible.tsx
+│   │       ├── slider.tsx
 │   │       └── scroll-area.tsx
 │   ├── lib/               # 工具库
 │   │   └── utils.ts       # cn() 等工具函数
@@ -69,6 +71,7 @@ ffmpeg-easy/
 ├── vite.config.ts         # Vite 构建配置（包含 CORS 头配置）
 ├── AGENTS.md              # AI 协作开发文档
 ├── API.md                 # FFmpegService API 文档
+├── CUSTOM_FORMS.md        # 自定义表单功能文档
 ├── FFMPEG_WEB.md          # FFmpeg Web 功能完整文档
 └── README.md              # 项目说明文档
 ```
@@ -243,6 +246,31 @@ docker run -p 3000:3000 ffmpeg-easy
 ---
 
 ## 更新日志
+
+### 2025-11-07 (v2.2)
+- **自定义表单功能**: 为命令预设添加可视化表单配置
+  - 扩展 CommandPreset 类型，添加 formSchema 字段
+  - 创建 DynamicForm 组件支持 5 种字段类型
+    - text（文本输入）
+    - number（数字输入）
+    - select（下拉选择）
+    - slider（滑块）
+    - checkbox（复选框）
+  - 实现模板变量替换系统（`{{variableName}}` 语法）
+  - 添加工具函数：
+    - replaceTemplateVariables: 替换命令中的模板变量
+    - getDefaultFormValues: 获取表单默认值
+  - 安装 shadcn/ui slider 组件
+  - 新增预设命令：
+    - "旋转视频"（单字段演示）
+    - "视频缩放（自定义）"（多字段演示：宽度、高度、码率、质量）
+- **UI/UX 改进**
+  - 表单修改时实时更新命令预览
+  - 带背景色的表单区域突出显示
+  - 命令复制功能支持模板替换后的命令
+- **文档更新**
+  - 创建 CUSTOM_FORMS.md 完整表单功能文档
+  - 包含示例、最佳实践和技术实现细节
 
 ### 2025-11-07 (v2.1)
 - **shadcn/ui 集成**: 全面采用 shadcn/ui 组件库

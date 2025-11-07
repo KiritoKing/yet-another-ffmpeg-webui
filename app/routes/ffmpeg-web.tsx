@@ -11,11 +11,15 @@ import {
   importPresetsFromJSON,
   downloadJSON,
   uploadJSON,
+  replaceTemplateVariables,
+  getDefaultFormValues,
 } from '../utils/commandUtils';
 import { CommandList } from '../components/CommandList';
 import { CommandEditor } from '../components/CommandEditor';
+import { CommandFilter } from '../components/CommandFilter';
 import { ProgressLogViewer } from '../components/ProgressLogViewer';
 import { ModeSelect } from '../components/ModeSelect';
+import { DynamicForm } from '../components/DynamicForm';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -24,7 +28,7 @@ import { Textarea } from '../components/ui/textarea';
 import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { Separator } from '../components/ui/separator';
-import { Loader2Icon, DownloadIcon, UploadIcon, PlusIcon, CodeIcon, PlayIcon } from 'lucide-react';
+import { Loader2Icon, DownloadIcon, UploadIcon, PlusIcon, CodeIcon, PlayIcon, CopyIcon, CheckIcon } from 'lucide-react';
 
 export default function FFmpegWeb() {
   const [isClient, setIsClient] = useState(false);
@@ -44,6 +48,11 @@ export default function FFmpegWeb() {
   const [cliCommand, setCliCommand] = useState('');
   const [outputUrl, setOutputUrl] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({});
+  const [copiedCommand, setCopiedCommand] = useState(false);
+  const [formValues, setFormValues] = useState<Record<string, string | number | boolean>>({});
+
+  // 分类筛选状态
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
 
   const ffmpegServiceRef = useRef<FFmpegService | null>(null);
   const addLog = useLogStore((state) => state.addLog);
@@ -55,6 +64,22 @@ export default function FFmpegWeb() {
   const deletePreset = useCommandStore((state) => state.deletePreset);
   const importPresets = useCommandStore((state) => state.importPresets);
   const exportPresets = useCommandStore((state) => state.exportPresets);
+
+  // 初始化分类筛选（全选）
+  useEffect(() => {
+    if (presets.length > 0 && selectedCategories.size === 0) {
+      const categories = new Set(presets.map(p => p.category || '未分类'));
+      setSelectedCategories(categories);
+    }
+  }, [presets, selectedCategories.size]);
+
+  // 当选择预设时，初始化表单默认值
+  useEffect(() => {
+    if (selectedPreset) {
+      const defaultValues = getDefaultFormValues(selectedPreset);
+      setFormValues(defaultValues);
+    }
+  }, [selectedPreset]);
 
   useEffect(() => {
     setIsClient(true);
@@ -147,10 +172,18 @@ export default function FFmpegWeb() {
         name: input.name,
       }));
 
+      // 如果有表单配置，替换模板变量
+      let finalArgs = selectedPreset.ffmpegArgs;
+      if (selectedPreset.formSchema && selectedPreset.formSchema.length > 0) {
+        finalArgs = replaceTemplateVariables(selectedPreset.ffmpegArgs, formValues);
+        addLog(`应用表单参数: ${JSON.stringify(formValues)}`, 'info');
+        addLog(`最终命令: ${finalArgs.join(' ')}`, 'info');
+      }
+
       const outputBlob = await service.executeCommand({
         inputFiles: inputFilesList,
         outputFileName: selectedPreset.outputFileName,
-        ffmpegArgs: selectedPreset.ffmpegArgs,
+        ffmpegArgs: finalArgs,
       });
 
       // 清理之前的 URL
@@ -220,11 +253,23 @@ export default function FFmpegWeb() {
   const handleCLIImport = () => {
     try {
       const parsed = parseCLICommand(cliCommand);
-      addPreset(parsed as any);
-      setCliCommand('');
+      
+      // 创建临时预设对象用于编辑
+      const tempPreset: Partial<CommandPreset> = {
+        ...parsed,
+        id: `temp_${Date.now()}`, // 临时 ID
+      };
+      
+      // 关闭 CLI 导入对话框
       setShowCLIImport(false);
-      addLog('从 CLI 导入命令成功', 'success');
-      toast.success('从 CLI 导入命令成功');
+      setCliCommand('');
+      
+      // 打开编辑器让用户完善信息
+      setEditingPreset(tempPreset as CommandPreset);
+      setShowEditor(true);
+      
+      addLog('已解析 CLI 命令，请完善命令信息', 'info');
+      toast.info('请完善命令信息后保存');
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       addLog(`CLI 解析失败: ${errorMsg}`, 'error');
@@ -241,6 +286,26 @@ export default function FFmpegWeb() {
     toast.success('文件下载成功');
   };
 
+  const handleCopyCommand = async () => {
+    if (!selectedPreset) return;
+    
+    // 如果有表单配置，使用替换后的参数
+    let args = selectedPreset.ffmpegArgs;
+    if (selectedPreset.formSchema && selectedPreset.formSchema.length > 0) {
+      args = replaceTemplateVariables(selectedPreset.ffmpegArgs, formValues);
+    }
+    
+    const command = `ffmpeg ${args.join(' ')}`;
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopiedCommand(true);
+      toast.success('命令已复制到剪贴板');
+      setTimeout(() => setCopiedCommand(false), 2000);
+    } catch (error) {
+      toast.error('复制失败');
+    }
+  };
+
   if (!isClient) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -254,13 +319,13 @@ export default function FFmpegWeb() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* 顶部工具栏 */}
+      {/* 顶部工具栏 - 缩小版本 */}
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold">FFmpeg Web</h1>
-              <p className="text-sm text-muted-foreground">浏览器中的视频处理工具</p>
+              <h1 className="text-xl font-bold">FFmpeg Web</h1>
+              <p className="text-xs text-muted-foreground">浏览器中的视频处理工具</p>
             </div>
 
             <div className="flex items-center gap-2">
@@ -271,15 +336,15 @@ export default function FFmpegWeb() {
               />
 
               {!loaded ? (
-                <Button onClick={loadFFmpeg} size="lg" disabled={loading}>
+                <Button onClick={loadFFmpeg} disabled={loading}>
                   {loading ? (
                     <>
-                      <Loader2Icon className="mr-2 animate-spin" />
+                      <Loader2Icon className="animate-spin" />
                       加载中...
                     </>
                   ) : (
                     <>
-                      <PlayIcon className="mr-2" />
+                      <PlayIcon />
                       加载 FFmpeg
                     </>
                   )}
@@ -288,33 +353,37 @@ export default function FFmpegWeb() {
                 <>
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={() => setShowCLIImport(true)}
                   >
-                    <CodeIcon className="mr-2" />
-                    从 CLI 导入
+                    <CodeIcon />
+                    CLI 导入
                   </Button>
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={handleImportJSON}
                   >
-                    <UploadIcon className="mr-2" />
-                    导入 JSON
+                    <UploadIcon />
+                    导入
                   </Button>
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={handleExportAll}
                   >
-                    <DownloadIcon className="mr-2" />
-                    导出全部
+                    <DownloadIcon />
+                    导出
                   </Button>
                   <Button
+                    size="sm"
                     onClick={() => {
                       setEditingPreset(null);
                       setShowEditor(true);
                     }}
                   >
-                    <PlusIcon className="mr-2" />
-                    新建命令
+                    <PlusIcon />
+                    新建
                   </Button>
                 </>
               )}
@@ -329,14 +398,23 @@ export default function FFmpegWeb() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* 左侧：命令列表 */}
             <div className="lg:col-span-1">
-              <Card className="h-[calc(100vh-12rem)] flex flex-col">
-                <div className="p-4 border-b">
-                  <h2 className="text-lg font-semibold">命令预设</h2>
+              <Card className="h-[calc(100vh-10rem)] flex flex-col">
+                <div className="px-4 py-2 border-b">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-semibold">命令预设</h2>
+                  </div>
+                  {/* 筛选器 */}
+                  <CommandFilter
+                    presets={presets}
+                    selectedCategories={selectedCategories}
+                    onCategoriesChange={setSelectedCategories}
+                  />
                 </div>
                 <div className="flex-1 overflow-hidden p-4">
                   <CommandList
                     presets={presets}
                     selectedId={selectedPreset?.id}
+                    selectedCategories={selectedCategories}
                     onSelect={setSelectedPreset}
                     onEdit={(preset) => {
                       setEditingPreset(preset);
@@ -370,11 +448,53 @@ export default function FFmpegWeb() {
 
                   {/* 命令预览 */}
                   <div className="mb-4">
-                    <Label className="mb-2 block">FFmpeg 命令</Label>
+                    <div className="flex items-center justify-between mb-2">
+                      <Label>FFmpeg 命令</Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleCopyCommand}
+                        className="h-7 px-2 text-xs"
+                      >
+                        {copiedCommand ? (
+                          <>
+                            <CheckIcon className="size-3 mr-1" />
+                            已复制
+                          </>
+                        ) : (
+                          <>
+                            <CopyIcon className="size-3 mr-1" />
+                            复制
+                          </>
+                        )}
+                      </Button>
+                    </div>
                     <div className="bg-slate-950 text-slate-50 p-3 rounded-lg font-mono text-xs overflow-x-auto">
-                      ffmpeg {selectedPreset.ffmpegArgs.join(' ')}
+                      ffmpeg {selectedPreset.formSchema && selectedPreset.formSchema.length > 0
+                        ? replaceTemplateVariables(selectedPreset.ffmpegArgs, formValues).join(' ')
+                        : selectedPreset.ffmpegArgs.join(' ')}
                     </div>
                   </div>
+
+                  {/* 自定义表单（如果有） */}
+                  {selectedPreset.formSchema && selectedPreset.formSchema.length > 0 && (
+                    <Card className="p-4 mb-4 bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                      <div className="mb-3">
+                        <Label className="text-base font-semibold flex items-center gap-2">
+                          <span className="text-blue-600 dark:text-blue-400">⚙️</span>
+                          命令参数配置
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          调整下方参数，命令将实时更新
+                        </p>
+                      </div>
+                      <DynamicForm
+                        schema={selectedPreset.formSchema}
+                        values={formValues}
+                        onChange={setFormValues}
+                      />
+                    </Card>
+                  )}
 
                   {/* 文件选择 */}
                   <div className="space-y-3">
@@ -508,21 +628,31 @@ export default function FFmpegWeb() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingPreset ? '编辑命令' : '新建命令'}
+              {editingPreset 
+                ? editingPreset.id.startsWith('temp_') 
+                  ? '完善 CLI 导入的命令' 
+                  : '编辑命令' 
+                : '新建命令'}
             </DialogTitle>
             <DialogDescription>
-              配置 FFmpeg 命令参数和输入输出文件
+              {editingPreset?.id.startsWith('temp_')
+                ? '已从 CLI 命令解析基本信息，请完善命令名称、描述等详细信息'
+                : '配置 FFmpeg 命令参数和输入输出文件'}
             </DialogDescription>
           </DialogHeader>
           <CommandEditor
             preset={editingPreset || undefined}
             onSave={(preset) => {
-              if (editingPreset) {
+              if (editingPreset && !editingPreset.id.startsWith('temp_')) {
+                // 更新现有命令
                 updatePreset(editingPreset.id, preset);
                 addLog(`更新命令: ${preset.name}`, 'success');
+                toast.success(`命令已更新: ${preset.name}`);
               } else {
+                // 新建命令（包括从 CLI 导入的）
                 addPreset(preset);
                 addLog(`创建命令: ${preset.name}`, 'success');
+                toast.success(`命令已创建: ${preset.name}`);
               }
               setShowEditor(false);
               setEditingPreset(null);

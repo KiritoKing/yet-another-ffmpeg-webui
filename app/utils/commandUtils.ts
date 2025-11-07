@@ -190,3 +190,41 @@ export function validatePreset(preset: Partial<CommandPreset>): string[] {
 
   return errors;
 }
+
+/**
+ * 替换命令中的模板变量
+ * 例如: ['-vf', 'transpose={{direction}}'] + {direction: '1'} => ['-vf', 'transpose=1']
+ */
+export function replaceTemplateVariables(
+  args: string[],
+  values: Record<string, string | number | boolean>
+): string[] {
+  return args.map((arg) => {
+    let result = arg;
+    // 匹配 {{variableName}} 格式
+    const matches = arg.matchAll(/\{\{(\w+)\}\}/g);
+    for (const match of matches) {
+      const varName = match[1];
+      const value = values[varName];
+      if (value !== undefined) {
+        result = result.replace(match[0], String(value));
+      }
+    }
+    return result;
+  });
+}
+
+/**
+ * 从命令预设的表单定义中获取默认值
+ */
+export function getDefaultFormValues(preset: CommandPreset): Record<string, string | number | boolean> {
+  if (!preset.formSchema) return {};
+  
+  const values: Record<string, string | number | boolean> = {};
+  preset.formSchema.forEach((field) => {
+    if (field.defaultValue !== undefined) {
+      values[field.name] = field.defaultValue;
+    }
+  });
+  return values;
+}

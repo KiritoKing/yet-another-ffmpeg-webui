@@ -1,9 +1,20 @@
+import { useState, useMemo } from 'react';
 import type { CommandPreset } from '../types/command';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
 import { Separator } from './ui/separator';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
 import { PencilIcon, DownloadIcon, TrashIcon, FileIcon } from 'lucide-react';
 
 interface CommandListProps {
@@ -13,6 +24,7 @@ interface CommandListProps {
   onEdit: (preset: CommandPreset) => void;
   onDelete: (preset: CommandPreset) => void;
   onExport: (preset: CommandPreset) => void;
+  selectedCategories: Set<string>;
 }
 
 export function CommandList({
@@ -22,9 +34,18 @@ export function CommandList({
   onEdit,
   onDelete,
   onExport,
+  selectedCategories,
 }: CommandListProps) {
+  // 筛选后的预设
+  const filteredPresets = useMemo(() => {
+    return presets.filter(p => selectedCategories.has(p.category || '未分类'));
+  }, [presets, selectedCategories]);
+
+  // 待删除的预设
+  const [presetToDelete, setPresetToDelete] = useState<CommandPreset | null>(null);
+
   // 按分类分组
-  const groupedPresets = presets.reduce((acc, preset) => {
+  const groupedPresets = filteredPresets.reduce((acc, preset) => {
     const category = preset.category || '未分类';
     if (!acc[category]) {
       acc[category] = [];
@@ -36,9 +57,10 @@ export function CommandList({
   const categories = Object.keys(groupedPresets).sort();
 
   return (
-    <ScrollArea className="h-full">
-      <div className="space-y-6 pr-4">
-        {categories.map((category) => (
+    <>
+      <ScrollArea className="h-full">
+        <div className="space-y-6 pr-4">
+          {categories.map((category) => (
           <div key={category}>
             <div className="flex items-center gap-2 mb-3 px-1">
               <div className="h-px flex-1 bg-border"></div>
@@ -122,9 +144,7 @@ export function CommandList({
                           className="hover:bg-destructive/10 hover:text-destructive rounded-lg"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (confirm(`确定要删除 "${preset.name}" 吗？`)) {
-                              onDelete(preset);
-                            }
+                            setPresetToDelete(preset);
                           }}
                           title="删除"
                         >
@@ -139,6 +159,16 @@ export function CommandList({
           </div>
         ))}
 
+        {filteredPresets.length === 0 && presets.length > 0 && (
+          <Card className="p-12 border-dashed">
+            <div className="text-center text-muted-foreground">
+              <FileIcon className="size-12 mx-auto mb-4 opacity-20" />
+              <p className="text-sm font-medium">没有符合筛选条件的命令</p>
+              <p className="text-xs mt-1">尝试选择其他分类</p>
+            </div>
+          </Card>
+        )}
+
         {presets.length === 0 && (
           <Card className="p-12 border-dashed">
             <div className="text-center text-muted-foreground">
@@ -146,9 +176,36 @@ export function CommandList({
               <p className="text-sm font-medium">暂无命令预设</p>
               <p className="text-xs mt-1">点击"新建命令"创建第一个预设</p>
             </div>
-          </Card>
-        )}
-      </div>
-    </ScrollArea>
+            </Card>
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* 删除确认对话框 */}
+      <AlertDialog open={!!presetToDelete} onOpenChange={(open) => !open && setPresetToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除命令预设 "{presetToDelete?.name}" 吗？此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (presetToDelete) {
+                  onDelete(presetToDelete);
+                  setPresetToDelete(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

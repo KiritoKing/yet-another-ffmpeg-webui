@@ -154,6 +154,103 @@ const defaultPresets: Omit<CommandPreset, 'id' | 'createdAt' | 'updatedAt'>[] = 
     ],
     outputFileName: 'output.mp4',
   },
+  {
+    name: '旋转视频',
+    description: '使用自定义角度或方向旋转视频（支持表单化配置）',
+    category: '视频编辑',
+    ffmpegArgs: [
+      '-i',
+      'input.mp4',
+      '-vf',
+      'transpose={{direction}}',
+      '-c:a',
+      'copy',
+      'output.mp4',
+    ],
+    inputFiles: [{ name: 'input.mp4', pattern: 'video/*' }],
+    outputFileName: 'output.mp4',
+    // 自定义表单配置
+    formSchema: [
+      {
+        name: 'direction',
+        label: '旋转方向',
+        type: 'select',
+        defaultValue: '1',
+        required: true,
+        description: '选择视频旋转的方向',
+        options: [
+          { label: '顺时针旋转 90°', value: '1' },
+          { label: '逆时针旋转 90°', value: '2' },
+          { label: '顺时针旋转 90° + 垂直翻转', value: '3' },
+          { label: '逆时针旋转 90° + 垂直翻转', value: '0' },
+        ],
+      },
+    ],
+  },
+  {
+    name: '视频缩放（自定义）',
+    description: '自定义视频分辨率、码率和质量参数',
+    category: '视频编辑',
+    ffmpegArgs: [
+      '-i',
+      'input.mp4',
+      '-vf',
+      'scale={{width}}:{{height}}',
+      '-b:v',
+      '{{bitrate}}k',
+      '-crf',
+      '{{quality}}',
+      '-c:a',
+      'copy',
+      'output.mp4',
+    ],
+    inputFiles: [{ name: 'input.mp4', pattern: 'video/*' }],
+    outputFileName: 'output.mp4',
+    formSchema: [
+      {
+        name: 'width',
+        label: '宽度（像素）',
+        type: 'number',
+        defaultValue: 1280,
+        min: 128,
+        max: 3840,
+        step: 2,
+        required: true,
+        description: '输出视频的宽度（必须是偶数）',
+      },
+      {
+        name: 'height',
+        label: '高度（像素）',
+        type: 'number',
+        defaultValue: 720,
+        min: 128,
+        max: 2160,
+        step: 2,
+        required: true,
+        description: '输出视频的高度（必须是偶数）',
+      },
+      {
+        name: 'bitrate',
+        label: '视频码率（kbps）',
+        type: 'slider',
+        defaultValue: 2000,
+        min: 500,
+        max: 10000,
+        step: 100,
+        description: '视频比特率，值越高质量越好但文件越大',
+      },
+      {
+        name: 'quality',
+        label: 'CRF 质量',
+        type: 'slider',
+        defaultValue: 23,
+        min: 18,
+        max: 35,
+        step: 1,
+        description: 'CRF 值：18=最高质量，28=平衡，35=最低质量',
+      },
+    ],
+  },
 ];
 
 export const useCommandStore = create<CommandStore>()(
@@ -193,12 +290,25 @@ export const useCommandStore = create<CommandStore>()(
 
       importPresets: (presets) => {
         const now = Date.now();
-        const importedPresets = presets.map((p) => ({
-          ...p,
-          id: `preset_${now}_${Math.random().toString(36).substr(2, 9)}`,
-          createdAt: p.createdAt || now,
-          updatedAt: now,
-        }));
+        const currentState = get();
+        const existingIds = new Set(currentState.presets.map(p => p.id));
+        
+        // 过滤掉重复的 ID，并为所有导入的预设生成新的 ID
+        const importedPresets = presets
+          .filter((p) => {
+            if (existingIds.has(p.id)) {
+              console.warn(`跳过重复的预设 ID: ${p.id} (${p.name})`);
+              return false;
+            }
+            return true;
+          })
+          .map((p) => ({
+            ...p,
+            id: `preset_${now}_${Math.random().toString(36).substr(2, 9)}`,
+            createdAt: p.createdAt || now,
+            updatedAt: now,
+          }));
+        
         set((state) => ({
           presets: [...state.presets, ...importedPresets],
         }));
