@@ -2,6 +2,7 @@ import { toast } from "sonner";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CommandPreset, FormField } from "../types/command";
+import { parseCLICommand } from "../utils/commandUtils";
 
 interface CommandStore {
 	presets: CommandPreset[];
@@ -419,6 +420,43 @@ export const useCommandStore = create<CommandStore>()(
 		}),
 		{
 			name: "ffmpeg-command-presets",
+			version: 2,
+			migrate: (persistedState: unknown) => {
+				if (!persistedState || typeof persistedState !== "object")
+					return persistedState as unknown;
+				const ps = persistedState as { presets?: unknown[] };
+				if (!ps.presets || !Array.isArray(ps.presets))
+					return persistedState as unknown;
+				const migrated = ps.presets.map((raw) => {
+					const preset = raw as Record<string, unknown> & {
+						ffmpegArgs?: string[];
+						formSchema?: FormField[];
+					};
+					const hasFileFields = (preset.formSchema || []).some(
+						(f) => f.type === "file-input" || f.type === "file-output",
+					);
+					if (hasFileFields) {
+						// 移除 legacy 字段
+						const { inputFiles: _i, outputFileName: _o, ...rest } = preset;
+						return rest;
+					}
+					try {
+						const partial = parseCLICommand(
+							`ffmpeg ${(preset.ffmpegArgs || []).join(" ")}`,
+						);
+						const { inputFiles: _li, outputFileName: _lo, ...others } = preset;
+						return {
+							...others,
+							ffmpegArgs: partial.ffmpegArgs || preset.ffmpegArgs,
+							formSchema: partial.formSchema || preset.formSchema,
+						};
+					} catch {
+						const { inputFiles: _li, outputFileName: _lo, ...rest } = preset;
+						return rest;
+					}
+				});
+				return { ...ps, presets: migrated };
+			},
 			onRehydrateStorage: () => (state) => {
 				// 如果没有预设命令，添加默认预设
 				if (state && state.presets.length === 0) {

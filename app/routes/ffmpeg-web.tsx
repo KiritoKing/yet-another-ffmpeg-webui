@@ -39,7 +39,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "../components/ui/dialog";
-import { Input } from "../components/ui/input";
+// import { Input } from "../components/ui/input"; // legacy input files UI removed
 import { Label } from "../components/ui/label";
 import { Separator } from "../components/ui/separator";
 import { Textarea } from "../components/ui/textarea";
@@ -85,7 +85,7 @@ export default function FFmpegWeb() {
 	const [showResetConfirm, setShowResetConfirm] = useState(false);
 	const [cliCommand, setCliCommand] = useState("");
 	const [outputUrl, setOutputUrl] = useState("");
-	const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({});
+	// const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({}); // legacy
 	const [copiedCommand, setCopiedCommand] = useState(false);
 	const [formValues, setFormValues] = useState<
 		Record<string, string | number | boolean | File | File[]>
@@ -248,8 +248,8 @@ export default function FFmpegWeb() {
 				return `output.${outputField.defaultExtension}`;
 			return "output.mp4";
 		}
-		// 向后兼容旧字段
-		return preset.outputFileName || "output.mp4";
+		// 默认名称
+		return "output.mp4";
 	};
 
 	const executeCommand = async () => {
@@ -282,17 +282,6 @@ export default function FFmpegWeb() {
 				const msg = `请先选择必填文件字段: ${missing.join(", ")}`;
 				addLog(msg, "warning");
 				toast.warning(msg);
-				return;
-			}
-		} else {
-			// 旧架构：使用 legacy inputFiles 校验
-			const missingFiles = (selectedPreset.inputFiles || []).filter(
-				(input) => !selectedFiles[input.name],
-			);
-			if (missingFiles.length > 0) {
-				const message = `请先选择以下文件: ${missingFiles.map((f) => f.name).join(", ")}`;
-				addLog(message, "warning");
-				toast.warning(message);
 				return;
 			}
 		}
@@ -333,7 +322,7 @@ export default function FFmpegWeb() {
 			setCurrentStep("正在处理...");
 
 			// 构造输入文件列表：优先使用 formSchema 中的 file-input 字段
-			let inputFilesList: Array<{ file: File; name: string }> = [];
+			const inputFilesList: Array<{ file: File; name: string }> = [];
 			if (fileInputFields.length > 0) {
 				for (const field of fileInputFields) {
 					const val = formValues[field.name];
@@ -350,12 +339,6 @@ export default function FFmpegWeb() {
 						});
 					}
 				}
-			} else {
-				// 旧架构
-				inputFilesList = (selectedPreset.inputFiles || []).map((input) => ({
-					file: selectedFiles[input.name],
-					name: input.name,
-				}));
 			}
 
 			// 如果有表单配置，替换模板变量
@@ -466,10 +449,7 @@ export default function FFmpegWeb() {
 		}
 	};
 
-	const handleFileSelect = (fileName: string, file: File) => {
-		setSelectedFiles((prev) => ({ ...prev, [fileName]: file }));
-		addLog(`已选择文件: ${fileName} -> ${file.name}`, "success");
-	};
+	// legacy 文件选择处理已移除（使用 DynamicForm 的 file-input 字段）
 
 	const handleExportAll = () => {
 		const json = exportPresetsToJSON(exportPresets());
@@ -601,7 +581,8 @@ export default function FFmpegWeb() {
 		setShowSettings(false);
 		// 如果当前选中的预设被删除了，清空选择
 		setSelectedPreset(null);
-		setSelectedFiles({});
+		// 清空表单（包含文件）
+		setFormValues({});
 		setOutputUrl("");
 	};
 
@@ -809,36 +790,7 @@ export default function FFmpegWeb() {
 										)}
 
 									{/* 文件选择 */}
-									{selectedPreset.inputFiles &&
-										selectedPreset.inputFiles.length > 0 && (
-											<div className="space-y-3">
-												<Label>选择输入文件</Label>
-												{selectedPreset.inputFiles.map((input) => (
-													<div key={input.name} className="space-y-1">
-														<Label className="text-xs text-muted-foreground">
-															{input.name}
-															{input.pattern && (
-																<span className="ml-2">({input.pattern})</span>
-															)}
-														</Label>
-														<Input
-															type="file"
-															accept={input.pattern || "*"}
-															onChange={(e) => {
-																const file = e.target.files?.[0];
-																if (file) handleFileSelect(input.name, file);
-															}}
-															disabled={processing}
-														/>
-														{selectedFiles[input.name] && (
-															<p className="text-xs text-green-600">
-																✓ {selectedFiles[input.name].name}
-															</p>
-														)}
-													</div>
-												))}
-											</div>
-										)}
+									{/* legacy inputFiles 文件选择区域已移除，改为使用 DynamicForm 的 file-input 字段 */}
 
 									{/* 执行/中止按钮 */}
 									<div className="flex gap-2 mt-4">
@@ -846,10 +798,16 @@ export default function FFmpegWeb() {
 											onClick={executeCommand}
 											disabled={
 												processing ||
-												(selectedPreset.inputFiles?.some(
-													(input) => !selectedFiles[input.name],
-												) ??
-													false)
+												getFileInputFields(selectedPreset).some((field) => {
+													if (!field.required) return false;
+													const val = formValues[field.name];
+													if (field.multiple) {
+														return (
+															!val || !Array.isArray(val) || val.length === 0
+														);
+													}
+													return !(val instanceof File);
+												})
 											}
 											className="flex-1"
 											size="lg"

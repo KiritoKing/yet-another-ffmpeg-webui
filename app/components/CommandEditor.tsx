@@ -1,4 +1,4 @@
-import { PlusIcon, XIcon } from "lucide-react";
+// 移除的 legacy 图标（输入文件增删）已不再需要
 import { useEffect, useState } from "react";
 import type { CommandPreset, FormField } from "../types/command";
 import {
@@ -43,12 +43,7 @@ export function CommandEditor({
 	const [ffmpegArgs, setFfmpegArgs] = useState(
 		preset?.ffmpegArgs.join(" ") || "",
 	);
-	const [inputFiles, setInputFiles] = useState(
-		preset?.inputFiles || [{ name: "input.mp4", pattern: "video/*" }],
-	);
-	const [outputFileName, setOutputFileName] = useState(
-		preset?.outputFileName || "output.mp4",
-	);
+	// legacy inputFiles/outputFileName 已移除，使用 formSchema 中的 file-input/file-output
 	// 表单编辑器相关状态
 	const [showFormEditor, setShowFormEditor] = useState(false);
 	const [formSchema, setFormSchema] = useState<FormField[]>(
@@ -77,8 +72,6 @@ export function CommandEditor({
 			description,
 			category,
 			ffmpegArgs: args,
-			inputFiles,
-			outputFileName,
 			formSchema: formSchema.length ? formSchema : undefined,
 		};
 
@@ -97,28 +90,7 @@ export function CommandEditor({
 		onSave(newPreset);
 	};
 
-	const addInputFile = () => {
-		setInputFiles([
-			...inputFiles,
-			{ name: `input${inputFiles.length + 1}.mp4`, pattern: "video/*" },
-		]);
-	};
-
-	const removeInputFile = (index: number) => {
-		setInputFiles(inputFiles.filter((_, i) => i !== index));
-	};
-
-	const updateInputFile = (
-		index: number,
-		field: "name" | "pattern",
-		value: string,
-	) => {
-		setInputFiles(
-			inputFiles.map((file, i) =>
-				i === index ? { ...file, [field]: value } : file,
-			),
-		);
-	};
+	// 输入/输出文件通过表单编辑器维护，不再单独编辑 legacy 字段
 
 	// 同步并校验模板变量使用情况
 	useEffect(() => {
@@ -151,15 +123,8 @@ export function CommandEditor({
 							请修正以下错误：
 						</h4>
 						<ul className="list-disc list-inside text-sm text-destructive/90 space-y-1">
-							{errors.map((error, index) => (
-								<li
-									key={`${error}-${
-										// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
-										index
-									}`}
-								>
-									{error}
-								</li>
+							{errors.map((error) => (
+								<li key={error}>{error}</li>
 							))}
 						</ul>
 					</div>
@@ -231,68 +196,11 @@ export function CommandEditor({
 
 				<Separator />
 
-				{/* 输入文件 */}
-				<div className="space-y-3">
-					<div className="flex items-center justify-between">
-						<Label>
-							输入文件{" "}
-							<Badge variant="destructive" className="ml-1">
-								必填
-							</Badge>
-						</Label>
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							onClick={addInputFile}
-						>
-							<PlusIcon className="mr-1" />
-							添加文件
-						</Button>
-					</div>
-					<div className="space-y-2">
-						{inputFiles.map((file, index) => (
-							<div key={file.name} className="flex gap-2">
-								<Input
-									value={file.name}
-									onChange={(e) =>
-										updateInputFile(index, "name", e.target.value)
-									}
-									placeholder="input.mp4"
-									className="flex-1"
-								/>
-								<Select
-									value={file.pattern || "*/*"}
-									onValueChange={(value) =>
-										updateInputFile(index, "pattern", value)
-									}
-								>
-									<SelectTrigger className="w-32">
-										<SelectValue placeholder="文件类型" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="*/*">任意文件</SelectItem>
-										<SelectItem value="video/*">视频</SelectItem>
-										<SelectItem value="audio/*">音频</SelectItem>
-										<SelectItem value="image/*">图片</SelectItem>
-									</SelectContent>
-								</Select>
-								{inputFiles.length > 1 && (
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon"
-										onClick={() => removeInputFile(index)}
-									>
-										<XIcon />
-									</Button>
-								)}
-							</div>
-						))}
-					</div>
-				</div>
-
-				<Separator />
+				{/* 输入/输出文件已通过“表单字段编辑器”管理 */}
+				<p className="text-xs text-muted-foreground">
+					文件选择与输出命名请在右侧“表单字段编辑器”中使用 file-input /
+					file-output 字段配置。
+				</p>
 
 				{/* FFmpeg 参数 */}
 				<div className="space-y-2">
@@ -314,22 +222,6 @@ export function CommandEditor({
 						onChange={setFfmpegArgs}
 						variables={declaredVars}
 						highlight
-					/>
-				</div>
-
-				{/* 输出文件 */}
-				<div className="space-y-2">
-					<Label htmlFor="outputFileName">
-						输出文件名{" "}
-						<Badge variant="destructive" className="ml-1">
-							必填
-						</Badge>
-					</Label>
-					<Input
-						id="outputFileName"
-						value={outputFileName}
-						onChange={(e) => setOutputFileName(e.target.value)}
-						placeholder="output.mp4"
 					/>
 				</div>
 

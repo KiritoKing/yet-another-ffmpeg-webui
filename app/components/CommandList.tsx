@@ -12,11 +12,7 @@ import {
 	AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { Button } from "./ui/button";
-import {
-	Card,
-	CardDescription,
-	CardTitle,
-} from "./ui/card";
+import { Card, CardDescription, CardTitle } from "./ui/card";
 import { ScrollArea } from "./ui/scroll-area";
 import { Separator } from "./ui/separator";
 
@@ -115,28 +111,23 @@ export function CommandList({
 													<div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2 border border-border/50">
 														<FileIcon className="size-3.5 shrink-0 text-primary/60" />
 														<span className="font-medium">
-															{preset.inputFiles?.length ??
-																preset.formSchema?.filter(
-																	(f) => f.type === "file-input",
-																).length ??
-																0}{" "}
+															{preset.formSchema?.filter(
+																(f) => f.type === "file-input",
+															).length ?? 0}{" "}
 															个输入
 														</span>
 														<Separator orientation="vertical" className="h-3" />
 														<span
 															className="truncate flex-1"
 															title={
-																preset.outputFileName ??
 																(preset.formSchema?.find(
 																	(f) => f.type === "file-output",
-																)?.defaultValue as string)
+																)?.defaultValue as string) || "output"
 															}
 														>
-															{preset.outputFileName ??
-																preset.formSchema?.find(
-																	(f) => f.type === "file-output",
-																)?.defaultValue ??
-																"output"}
+															{(preset.formSchema?.find(
+																(f) => f.type === "file-output",
+															)?.defaultValue as string) || "output"}
 														</span>
 													</div>
 												</div>

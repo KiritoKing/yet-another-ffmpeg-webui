@@ -36,14 +36,8 @@ export interface CommandPreset {
 	description: string;
 	category: string;
 	ffmpegArgs: string[]; // 支持模板变量，如 ['-i', '{{input}}', '-vf', 'transpose={{direction}}', '{{output}}']
-
-	// 已废弃：保留用于向后兼容，新版本应使用 formSchema 中的 file-input/file-output
-	inputFiles?: Array<{
-		name: string;
-		pattern?: string;
-	}>;
-	outputFileName?: string;
-	outputMimeType?: string;
+	// 已彻底迁移：不再使用 legacy inputFiles/outputFileName。输入输出文件通过 formSchema 的 file-input/file-output 字段定义。
+	outputMimeType?: string; // 仍可保留用于输出 Blob MIME 推断覆盖
 
 	createdAt: number;
 	updatedAt: number;

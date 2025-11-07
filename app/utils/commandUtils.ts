@@ -36,16 +36,48 @@ export function parseCLICommand(cliCommand: string): Partial<CommandPreset> {
 		args.push(current);
 	}
 
-	// 提取输入文件
-	const inputFiles: Array<{ name: string; pattern?: string }> = [];
-	for (let i = 0; i < args.length; i++) {
-		if (args[i] === "-i" && args[i + 1]) {
-			inputFiles.push({ name: args[i + 1] });
+	// 构建表单：将 -i 输入与最后一个输出参数迁移为 file-input/file-output
+	const formSchema: FormField[] = [];
+	const transformedArgs = [...args];
+
+	// 输入：查找所有 -i <file> 并替换为变量
+	let inputIndex = 0;
+	for (let i = 0; i < transformedArgs.length - 1; i++) {
+		if (transformedArgs[i] === "-i") {
+			const filename = transformedArgs[i + 1];
+			if (!filename) continue;
+			inputIndex += 1;
+			// 推导变量名：input, input2, input3...
+			const varName = inputIndex === 1 ? "input" : `input${inputIndex}`;
+			formSchema.push({
+				name: varName,
+				label: inputIndex === 1 ? "输入文件" : `输入文件 ${inputIndex}`,
+				type: "file-input",
+				accept: "*/*",
+				multiple: false,
+				required: true,
+				description: "从命令行导入的输入文件",
+			});
+			// 用变量替换文件名
+			transformedArgs[i + 1] = `{{${varName}}}`;
 		}
 	}
 
-	// 提取输出文件（通常是最后一个参数）
-	const outputFileName = args[args.length - 1] || "output.mp4";
+	// 输出：最后一个参数视为输出文件
+	const rawOutput = transformedArgs[transformedArgs.length - 1] || "output.mp4";
+	const outputExtMatch = /\.([a-zA-Z0-9]+)$/.exec(rawOutput);
+	const defaultExt = outputExtMatch ? outputExtMatch[1] : "mp4";
+	formSchema.push({
+		name: "output",
+		label: "输出文件名",
+		type: "file-output",
+		defaultValue: rawOutput,
+		defaultExtension: defaultExt,
+		required: true,
+		description: "从命令行导入的输出文件",
+	});
+	// 将最后一个参数替换为 {{output}}
+	transformedArgs[transformedArgs.length - 1] = "{{output}}";
 
 	// 生成默认名称和描述
 	const name = `自定义命令 ${new Date().toLocaleTimeString()}`;
@@ -53,9 +85,7 @@ export function parseCLICommand(cliCommand: string): Partial<CommandPreset> {
 		cleanCommand.length > 100 ? "..." : ""
 	}`;
 
-	// 智能识别模板变量与表单字段
-	const formSchema: FormField[] = [];
-	const transformedArgs = [...args];
+	// 智能识别模板变量与其他数值表单字段（在已替换输入/输出之后继续增强）
 
 	// scale=WxH 检测
 	for (let i = 0; i < transformedArgs.length; i++) {
@@ -157,8 +187,6 @@ export function parseCLICommand(cliCommand: string): Partial<CommandPreset> {
 		description,
 		category: "自定义",
 		ffmpegArgs: transformedArgs,
-		inputFiles,
-		outputFileName,
 		formSchema: formSchema.length ? formSchema : undefined,
 	};
 }
@@ -193,6 +221,19 @@ export function importPresetsFromJSON(json: string): {
 				continue;
 			}
 
+			// 如果不存在 file-input/file-output 字段，但存在 legacy 字段，进行迁移
+			let migratedArgs: string[] = item.ffmpegArgs;
+			let migratedSchema: FormField[] | undefined = item.formSchema;
+			const hasFileFields = (item.formSchema || []).some(
+				(f: FormField) => f.type === "file-input" || f.type === "file-output",
+			);
+			if (!hasFileFields && (item.inputFiles || item.outputFileName)) {
+				// 基于 CLI 规则进行一次迁移：使用 parseCLICommand 逻辑
+				const partial = parseCLICommand(`ffmpeg ${item.ffmpegArgs.join(" ")}`);
+				migratedArgs = partial.ffmpegArgs || item.ffmpegArgs;
+				migratedSchema = partial.formSchema;
+			}
+
 			presets.push({
 				id:
 					item.id ||
@@ -200,11 +241,9 @@ export function importPresetsFromJSON(json: string): {
 				name: item.name,
 				description: item.description || "",
 				category: item.category || "未分类",
-				ffmpegArgs: item.ffmpegArgs,
-				inputFiles: item.inputFiles || [{ name: "input.mp4" }],
-				outputFileName: item.outputFileName || "output.mp4",
+				ffmpegArgs: migratedArgs,
 				outputMimeType: item.outputMimeType,
-				formSchema: item.formSchema,
+				formSchema: migratedSchema,
 				createdAt: item.createdAt || Date.now(),
 				updatedAt: item.updatedAt || Date.now(),
 			});
@@ -287,12 +326,18 @@ export function validatePreset(preset: Partial<CommandPreset>): string[] {
 		errors.push("FFmpeg 参数不能为空");
 	}
 
-	if (!preset.inputFiles || preset.inputFiles.length === 0) {
-		errors.push("至少需要一个输入文件");
+	// 新架构：要求在 formSchema 中至少包含一个 file-input 和一个 file-output 字段
+	const fileInputs = (preset.formSchema || []).filter(
+		(f) => f.type === "file-input",
+	);
+	const fileOutputs = (preset.formSchema || []).filter(
+		(f) => f.type === "file-output",
+	);
+	if (fileInputs.length === 0) {
+		errors.push("表单中至少需要一个文件输入字段");
 	}
-
-	if (!preset.outputFileName || preset.outputFileName.trim() === "") {
-		errors.push("输出文件名不能为空");
+	if (fileOutputs.length === 0) {
+		errors.push("表单中需要一个文件输出字段");
 	}
 
 	return errors;
@@ -306,7 +351,7 @@ export function extractTemplateVariables(args: string[]): string[] {
 	const re = /\{\{(\w+)\}\}/g;
 	for (const a of args) {
 		let m: RegExpExecArray | null;
-		// biome-ignore lint/suspicious/noAssignInExpressions: <explanation>
+		// biome-ignore lint/suspicious/noAssignInExpressions: false positive
 		while ((m = re.exec(a))) {
 			vars.add(m[1]);
 		}
