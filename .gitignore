@@ -5,3 +5,6 @@
 # React Router
 /.react-router/
 /build/
+
+# YoYo AI version control directory
+.yoyo/

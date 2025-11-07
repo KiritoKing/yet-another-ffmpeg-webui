@@ -22,11 +22,27 @@ export default function Home() {
           
           <div className="space-y-4">
             <Link
-              to="/ffmpeg-demo"
+              to="/ffmpeg-web"
               className="block w-full bg-blue-600 hover:bg-blue-700 text-white text-center font-semibold py-4 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg"
             >
-              🎬 开始使用 FFmpeg Demo
+              🚀 FFmpeg Web - 完整版
             </Link>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <Link
+                to="/ffmpeg-demo"
+                className="block w-full bg-indigo-600 hover:bg-indigo-700 text-white text-center font-semibold py-3 px-4 rounded-lg transition-all transform hover:scale-105 shadow text-sm"
+              >
+                🎬 简单模式
+              </Link>
+              
+              <Link
+                to="/ffmpeg-advanced"
+                className="block w-full bg-purple-600 hover:bg-purple-700 text-white text-center font-semibold py-3 px-4 rounded-lg transition-all transform hover:scale-105 shadow text-sm"
+              >
+                ⚡ 高级模式
+              </Link>
+            </div>
             
             <div className="bg-gray-50 rounded-lg p-6 mt-8">
               <h2 className="text-lg font-semibold text-gray-800 mb-3">

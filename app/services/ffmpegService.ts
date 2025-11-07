@@ -17,6 +17,12 @@ export interface ConvertOptions {
   speed?: number;
 }
 
+export interface ExecuteCommandOptions {
+  inputFiles: { file: File; name: string }[];
+  outputFileName: string;
+  ffmpegArgs: string[];
+}
+
 export class FFmpegService {
   private ffmpeg: FFmpeg | null = null;
   private config: FFmpegConfig;
@@ -93,78 +99,136 @@ export class FFmpegService {
   }
 
   /**
-   * 转换视频
+   * 执行任意 FFmpeg 命令
    */
-  async convert(options: ConvertOptions): Promise<Blob> {
+  async executeCommand(options: ExecuteCommandOptions): Promise<Blob> {
     if (!this.ffmpeg || !this.loaded) {
       throw new Error("FFmpeg 未加载，请先调用 load()");
     }
 
-    const {
-      inputFile,
-      outputFormat = "webm",
-      videoCodec = "libvpx-vp9",
-      quality = 30,
-      speed = 4, // 降低默认速度，提高稳定性
-    } = options;
-
-    // 使用简单的文件名，避免特殊字符问题
-    const inputFileName = "input.mp4";
-    const outputFileName = "output.mp4";
+    const { inputFiles, outputFileName, ffmpegArgs } = options;
+    const fileNames: string[] = [];
 
     try {
-      // 写入输入文件
-      this.config.onLog?.(`正在加载文件: ${inputFile.name} (${(inputFile.size / 1024).toFixed(2)} KB)`);
-      const inputData = await fetchFile(inputFile);
-      await this.ffmpeg.writeFile(inputFileName, inputData);
-      this.config.onLog?.(`文件已写入 FFmpeg 虚拟文件系统`);
+      // 写入所有输入文件
+      for (const { file, name } of inputFiles) {
+        this.config.onLog?.(
+          `正在加载文件: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`,
+        );
+        const inputData = await fetchFile(file);
+        await this.ffmpeg.writeFile(name, inputData);
+        fileNames.push(name);
+        this.config.onLog?.(`文件 ${name} 已写入 FFmpeg 虚拟文件系统`);
+      }
 
-      // 使用最简单的复制模式 - 不重新编码，只是重新封装
-      // 这可以测试 FFmpeg 的基本功能是否正常
-      const args = [
-        "-i", inputFileName,
-        "-c", "copy", // 复制所有流，不重新编码
-        outputFileName,
-      ];
+      this.config.onLog?.(`执行 FFmpeg 命令: ffmpeg ${ffmpegArgs.join(" ")}`);
 
-      this.config.onLog?.(`执行 FFmpeg 命令: ffmpeg ${args.join(" ")}`);
-      
-      // 执行转换
-      await this.ffmpeg.exec(args);
-      
-      this.config.onLog?.(`转换完成，正在读取输出文件`);
+      // 执行命令
+      await this.ffmpeg.exec(ffmpegArgs);
+
+      this.config.onLog?.(`命令执行完成，正在读取输出文件`);
 
       // 读取输出文件
       const data = await this.ffmpeg.readFile(outputFileName);
-      
-      this.config.onLog?.(`输出文件大小: ${(data.length / 1024).toFixed(2)} KB`);
+
+      this.config.onLog?.(
+        `输出文件大小: ${(data.length / 1024).toFixed(2)} KB`,
+      );
 
       // 创建新的 Uint8Array 副本，避免 SharedArrayBuffer 问题
       const uint8Data = new Uint8Array(data as Uint8Array);
       const buffer = uint8Data.buffer.slice(0);
-      
+
       // 清理文件
       try {
-        await this.ffmpeg.deleteFile(inputFileName);
+        for (const fileName of fileNames) {
+          await this.ffmpeg.deleteFile(fileName);
+        }
         await this.ffmpeg.deleteFile(outputFileName);
         this.config.onLog?.(`清理临时文件完成`);
       } catch (e) {
         console.warn("清理文件失败:", e);
       }
 
-      // 返回 Blob（保持原视频格式）
-      return new Blob([buffer], { type: inputFile.type || "video/mp4" });
+      // 推断输出文件的 MIME 类型
+      const mimeType = this.getMimeType(outputFileName);
+
+      return new Blob([buffer], { type: mimeType });
     } catch (error) {
-      this.config.onLog?.(`转换失败: ${error}`);
+      this.config.onLog?.(`命令执行失败: ${error}`);
       // 确保在错误时也清理文件
       try {
-        await this.ffmpeg.deleteFile(inputFileName).catch(() => {});
+        for (const fileName of fileNames) {
+          await this.ffmpeg.deleteFile(fileName).catch(() => {});
+        }
         await this.ffmpeg.deleteFile(outputFileName).catch(() => {});
       } catch (e) {
         // 忽略清理错误
       }
       throw error;
     }
+  }
+
+  /**
+   * 转换视频（便捷方法，内部调用 executeCommand）
+   */
+  async convert(options: ConvertOptions): Promise<Blob> {
+    const {
+      inputFile,
+      outputFormat = "webm",
+      videoCodec = "libvpx-vp9",
+      quality = 30,
+      speed = 4,
+    } = options;
+
+    const inputFileName = "input.mp4";
+    const outputFileName = `output.${outputFormat}`;
+
+    // 构建 FFmpeg 参数
+    const args = [
+      "-i",
+      inputFileName,
+      "-c",
+      "copy",
+      outputFileName,
+    ];
+
+    return this.executeCommand({
+      inputFiles: [{ file: inputFile, name: inputFileName }],
+      outputFileName,
+      ffmpegArgs: args,
+    });
+  }
+
+  /**
+   * 根据文件扩展名推断 MIME 类型
+   */
+  private getMimeType(fileName: string): string {
+    const ext = fileName.split(".").pop()?.toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      mp4: "video/mp4",
+      webm: "video/webm",
+      avi: "video/x-msvideo",
+      mov: "video/quicktime",
+      mkv: "video/x-matroska",
+      flv: "video/x-flv",
+      wmv: "video/x-ms-wmv",
+      m4v: "video/x-m4v",
+      mpg: "video/mpeg",
+      mpeg: "video/mpeg",
+      mp3: "audio/mpeg",
+      wav: "audio/wav",
+      ogg: "audio/ogg",
+      aac: "audio/aac",
+      flac: "audio/flac",
+      m4a: "audio/mp4",
+      gif: "image/gif",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp",
+    };
+    return mimeTypes[ext || ""] || "application/octet-stream";
   }
 
   /**

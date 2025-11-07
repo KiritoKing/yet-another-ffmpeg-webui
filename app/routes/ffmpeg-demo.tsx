@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLogStore } from '../store/logStore';
-import { FFmpegService, type FFmpegMode } from '../services/ffmpegService';
+import { 
+  FFmpegService, 
+  type FFmpegMode, 
+  type ExecuteCommandOptions 
+} from '../services/ffmpegService';
 import { LogViewer } from '../components/LogViewer';
 import { ModeSelect } from '../components/ModeSelect';
 import { FileUploader } from '../components/FileUploader';
@@ -93,10 +97,21 @@ export default function FFmpegDemo() {
         addLog('使用单线程模式', 'info');
       }
 
-      // 使用 FFmpeg 服务转换（使用简化的参数）
+      // 方式1: 使用便捷的 convert 方法（内部调用 executeCommand）
       const outputBlob = await service.convert({
         inputFile: file,
       });
+
+      // 方式2: 使用 executeCommand 执行自定义 FFmpeg 命令
+      // const outputBlob = await service.executeCommand({
+      //   inputFiles: [{ file, name: 'input.mp4' }],
+      //   outputFileName: 'output.mp4',
+      //   ffmpegArgs: [
+      //     '-i', 'input.mp4',
+      //     '-c', 'copy',
+      //     'output.mp4'
+      //   ]
+      // });
 
       const url = URL.createObjectURL(outputBlob);
       setVideoSrc(url);

@@ -1,3 +1,13 @@
+import { Label } from './ui/label';
+import { Badge } from './ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+
 interface ModeSelectProps {
   useMultiThread: boolean;
   onModeChange: (multiThread: boolean) => void;
@@ -7,41 +17,33 @@ export function ModeSelect({ useMultiThread, onModeChange }: ModeSelectProps) {
   const isSharedArrayBufferAvailable = typeof SharedArrayBuffer !== 'undefined';
 
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-      <h3 className="font-semibold text-gray-800 mb-3">选择运行模式</h3>
-      <div className="space-y-2">
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="radio"
-            name="threadMode"
-            checked={useMultiThread}
-            onChange={() => onModeChange(true)}
-            className="mr-3 w-4 h-4 text-blue-600"
-          />
-          <div>
-            <span className="font-medium text-gray-800">多线程模式 ⚡</span>
-            <p className="text-sm text-gray-600">
-              推荐 - 性能提升 2-4 倍，适合大文件
+    <div className="flex items-center gap-2">
+      <Label htmlFor="mode-select" className="text-sm whitespace-nowrap">
+        运行模式:
+      </Label>
+      <Select
+        value={useMultiThread ? 'multi' : 'single'}
+        onValueChange={(value) => onModeChange(value === 'multi')}
+      >
+        <SelectTrigger id="mode-select" className="w-[200px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="multi">
+            <div className="flex items-center gap-2">
+              <span>多线程模式 ⚡</span>
               {!isSharedArrayBufferAvailable && (
-                <span className="text-orange-600 font-semibold"> (需要重启服务器)</span>
+                <Badge variant="outline" className="text-[10px] px-1 py-0 text-orange-600 border-orange-600">
+                  需重启
+                </Badge>
               )}
-            </p>
-          </div>
-        </label>
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="radio"
-            name="threadMode"
-            checked={!useMultiThread}
-            onChange={() => onModeChange(false)}
-            className="mr-3 w-4 h-4 text-blue-600"
-          />
-          <div>
-            <span className="font-medium text-gray-800">单线程模式 ✓</span>
-            <p className="text-sm text-gray-600">兼容性更好，内存占用更低，无需额外配置</p>
-          </div>
-        </label>
-      </div>
+            </div>
+          </SelectItem>
+          <SelectItem value="single">
+            <span>单线程模式 ✓</span>
+          </SelectItem>
+        </SelectContent>
+      </Select>
     </div>
   );
 }

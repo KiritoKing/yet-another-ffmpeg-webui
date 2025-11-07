@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useLogStore } from '../store/logStore';
 import type { LogEntry } from '../types/log';
+import { Card } from './ui/card';
+import { Badge } from './ui/badge';
+import { ScrollArea } from './ui/scroll-area';
 
 export function LogViewer() {
   const logs = useLogStore((state) => state.logs);
@@ -20,7 +23,7 @@ export function LogViewer() {
       case 'warning':
         return 'text-orange-700 bg-orange-50 border-orange-200';
       default:
-        return 'text-gray-700 bg-gray-50 border-gray-200';
+        return 'text-muted-foreground bg-muted border-border';
     }
   };
 
@@ -38,32 +41,34 @@ export function LogViewer() {
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
+    <Card className="p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-gray-800">处理日志</h3>
-        <span className="text-xs text-gray-500">{logs.length} 条记录</span>
+        <h3 className="font-semibold">处理日志</h3>
+        <Badge variant="secondary">{logs.length} 条记录</Badge>
       </div>
-      <div className="space-y-2 max-h-64 overflow-y-auto">
-        {logs.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-8">暂无日志</p>
-        ) : (
-          logs.map((log) => (
-            <div
-              key={log.id}
-              className={`px-3 py-2 rounded border text-sm font-mono ${getLogColor(log.type)}`}
-            >
-              <div className="flex items-start gap-2">
-                <span className="shrink-0">{getLogIcon(log.type)}</span>
-                <div className="flex-1 min-w-0">
-                  <span className="text-xs opacity-75">{log.timestamp}</span>
-                  <p className="wrap-break-word">{log.message}</p>
+      <ScrollArea className="h-64">
+        <div className="space-y-2 pr-4">
+          {logs.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">暂无日志</p>
+          ) : (
+            logs.map((log) => (
+              <div
+                key={log.id}
+                className={`px-3 py-2 rounded border text-sm font-mono ${getLogColor(log.type)}`}
+              >
+                <div className="flex items-start gap-2">
+                  <span className="shrink-0">{getLogIcon(log.type)}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs opacity-75">{log.timestamp}</span>
+                    <p className="wrap-break-word">{log.message}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
-        )}
-        <div ref={logEndRef} />
-      </div>
-    </div>
+            ))
+          )}
+          <div ref={logEndRef} />
+        </div>
+      </ScrollArea>
+    </Card>
   );
 }
