@@ -27,6 +27,7 @@ export class FFmpegService {
   private ffmpeg: FFmpeg | null = null;
   private config: FFmpegConfig;
   private loaded = false;
+  private isExecuting = false;
 
   constructor(config: FFmpegConfig) {
     this.config = config;
@@ -106,8 +107,14 @@ export class FFmpegService {
       throw new Error("FFmpeg 未加载，请先调用 load()");
     }
 
+    if (this.isExecuting) {
+      throw new Error("FFmpeg 正在执行任务，请等待完成或中止当前任务");
+    }
+
     const { inputFiles, outputFileName, ffmpegArgs } = options;
     const fileNames: string[] = [];
+
+    this.isExecuting = true;
 
     try {
       // 写入所有输入文件
@@ -166,6 +173,8 @@ export class FFmpegService {
         // 忽略清理错误
       }
       throw error;
+    } finally {
+      this.isExecuting = false;
     }
   }
 
@@ -246,13 +255,57 @@ export class FFmpegService {
   }
 
   /**
-   * 终止 FFmpeg（清理资源）
+   * 终止 FFmpeg 进程（用于清理或重新加载）
    */
   async terminate(): Promise<void> {
-    if (this.ffmpeg && this.loaded) {
-      await this.ffmpeg.terminate();
-      this.ffmpeg = null;
+    if (!this.ffmpeg) return;
+
+    try {
+      this.config.onLog?.("正在终止 FFmpeg...");
+
+      // 先设置标志，防止新任务启动
+      this.isExecuting = false;
       this.loaded = false;
+
+      // 终止 FFmpeg 实例
+      this.ffmpeg.terminate();
+
+      // 清空实例引用
+      this.ffmpeg = null;
+
+      this.config.onLog?.("FFmpeg 已终止");
+    } catch (error) {
+      console.error("终止 FFmpeg 失败:", error);
+      // 即使出错也要清理状态
+      this.isExecuting = false;
+      this.loaded = false;
+      this.ffmpeg = null;
     }
+  }
+
+  /**
+   * 中止当前正在执行的任务
+   */
+  async abort(): Promise<void> {
+    if (!this.isExecuting) {
+      this.config.onLog?.("没有正在执行的任务");
+      return;
+    }
+
+    try {
+      this.config.onLog?.("正在中止任务...");
+      await this.terminate();
+      this.config.onLog?.("任务已中止");
+    } catch (error) {
+      console.error("中止任务失败:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * 检查是否正在执行任务
+   */
+  getIsExecuting(): boolean {
+    return this.isExecuting;
   }
 }

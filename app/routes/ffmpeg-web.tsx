@@ -30,7 +30,7 @@ import { Textarea } from '../components/ui/textarea';
 import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { Separator } from '../components/ui/separator';
-import { Loader2Icon, DownloadIcon, UploadIcon, PlusIcon, CodeIcon, PlayIcon, CopyIcon, CheckIcon } from 'lucide-react';
+import { Loader2Icon, DownloadIcon, UploadIcon, PlusIcon, CodeIcon, PlayIcon, CopyIcon, CheckIcon, XIcon } from 'lucide-react';
 
 export default function FFmpegWeb() {
   const [isClient, setIsClient] = useState(false);
@@ -51,10 +51,17 @@ export default function FFmpegWeb() {
   const [outputUrl, setOutputUrl] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({});
   const [copiedCommand, setCopiedCommand] = useState(false);
-  const [formValues, setFormValues] = useState<Record<string, string | number | boolean>>({});
+  const [formValues, setFormValues] = useState<Record<string, string | number | boolean | File | File[]>>({});
 
   // 分类筛选状态
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+
+  // 用于跟踪任务执行的起始时间，避免累积问题
+  const taskStartTimeRef = useRef<number>(0);
+  
+  // 用于检测进度停滞
+  const lastProgressUpdateRef = useRef<number>(0);
+  const progressCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const ffmpegServiceRef = useRef<FFmpegService | null>(null);
   const addLog = useLogStore((state) => state.addLog);
@@ -82,6 +89,22 @@ export default function FFmpegWeb() {
       setFormValues(defaultValues);
     }
   }, [selectedPreset]);
+
+  // 辅助函数：从 formValues 中提取非文件参数用于模板替换
+  const extractNonFileValues = (values: Record<string, string | number | boolean | File | File[]>): Record<string, string | number | boolean> => {
+    const result: Record<string, string | number | boolean> = {};
+    Object.keys(values).forEach((key) => {
+      const value = values[key];
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        result[key] = value;
+      } else if (value instanceof File) {
+        result[key] = value.name; // 文件转为文件名字符串
+      } else if (Array.isArray(value) && value.length > 0 && value[0] instanceof File) {
+        result[key] = (value as File[]).map(f => f.name).join(' '); // 多文件转为空格分隔的文件名
+      }
+    });
+    return result;
+  };
 
   useEffect(() => {
     setIsClient(true);
@@ -113,9 +136,21 @@ export default function FFmpegWeb() {
           addLog(message, 'info');
         },
         onProgress: (p, time) => {
+          // 第一次收到进度时记录起始时间
+          if (taskStartTimeRef.current === 0 && time > 0) {
+            taskStartTimeRef.current = time;
+          }
+          
+          // 更新最后进度时间
+          lastProgressUpdateRef.current = Date.now();
+          
           setProgress(p);
           if (p > 0 && p < 1) {
-            setCurrentStep(`处理中... ${(time / 1000000).toFixed(2)}s`);
+            // 计算相对于任务开始的时间
+            const relativeTime = taskStartTimeRef.current > 0 
+              ? time - taskStartTimeRef.current 
+              : time;
+            setCurrentStep(`处理中... ${Math.max(0, relativeTime / 1000000).toFixed(2)}s`);
           }
         },
       });
@@ -149,7 +184,7 @@ export default function FFmpegWeb() {
     }
 
     // 检查是否已选择所需的文件
-    const missingFiles = selectedPreset.inputFiles.filter(
+    const missingFiles = (selectedPreset.inputFiles || []).filter(
       (input) => !selectedFiles[input.name]
     );
 
@@ -161,15 +196,40 @@ export default function FFmpegWeb() {
     }
 
     setProcessing(true);
-    setProgress(0);
+    setProgress(0); // 重置进度
+    taskStartTimeRef.current = 0; // 重置任务起始时间
+    lastProgressUpdateRef.current = Date.now(); // 记录开始时间
     setCurrentStep('准备执行...');
     clearLogs();
+    
+    // 启动进度停滞检测（每 30 秒检查一次）
+    progressCheckIntervalRef.current = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastUpdate = now - lastProgressUpdateRef.current;
+      
+      // 如果超过 30 秒没有进度更新，发出警告
+      if (timeSinceLastUpdate > 30000) {
+        const message = `⚠️ 任务进度已停滞 ${Math.floor(timeSinceLastUpdate / 1000)} 秒。可能原因：\n` +
+          `- VP9/H.265 等编码器处理大文件极慢\n` +
+          `- 建议使用"中止"按钮停止，并尝试:\n` +
+          `  • 使用更快的编码器（H.264）\n` +
+          `  • 降低分辨率或帧率\n` +
+          `  • 减小文件大小`;
+        addLog(message, 'warning');
+        
+        // 只提示一次，避免重复提示
+        if (progressCheckIntervalRef.current) {
+          clearInterval(progressCheckIntervalRef.current);
+          progressCheckIntervalRef.current = null;
+        }
+      }
+    }, 30000);
 
     try {
       addLog(`开始执行命令: ${selectedPreset.name}`, 'info');
       setCurrentStep('正在处理...');
 
-      const inputFilesList = selectedPreset.inputFiles.map((input) => ({
+      const inputFilesList = (selectedPreset.inputFiles || []).map((input) => ({
         file: selectedFiles[input.name],
         name: input.name,
       }));
@@ -177,14 +237,14 @@ export default function FFmpegWeb() {
       // 如果有表单配置，替换模板变量
       let finalArgs = selectedPreset.ffmpegArgs;
       if (selectedPreset.formSchema && selectedPreset.formSchema.length > 0) {
-        finalArgs = replaceTemplateVariables(selectedPreset.ffmpegArgs, formValues);
-        addLog(`应用表单参数: ${JSON.stringify(formValues)}`, 'info');
+        finalArgs = replaceTemplateVariables(selectedPreset.ffmpegArgs, extractNonFileValues(formValues));
+        addLog(`应用表单参数: ${JSON.stringify(extractNonFileValues(formValues))}`, 'info');
         addLog(`最终命令: ${finalArgs.join(' ')}`, 'info');
       }
 
       const outputBlob = await service.executeCommand({
         inputFiles: inputFilesList,
-        outputFileName: selectedPreset.outputFileName,
+        outputFileName: selectedPreset.outputFileName || 'output.mp4',
         ffmpegArgs: finalArgs,
       });
 
@@ -205,8 +265,67 @@ export default function FFmpegWeb() {
       addLog(`执行失败: ${errorMessage}`, 'error');
       toast.error(`执行失败: ${errorMessage}`);
       setCurrentStep('执行失败');
+      
+      // 清理错误的 FFmpeg 实例，避免后续任务继续出错
+      try {
+        if (service) {
+          await service.terminate();
+          ffmpegServiceRef.current = null;
+          setLoaded(false);
+          addLog('FFmpeg 实例已清理，请重新加载后再试', 'warning');
+          toast.warning('FFmpeg 实例已清理，请重新加载后再试');
+        }
+      } catch (cleanupError) {
+        console.error('清理 FFmpeg 实例失败:', cleanupError);
+      }
     } finally {
+      // 清理进度检测定时器
+      if (progressCheckIntervalRef.current) {
+        clearInterval(progressCheckIntervalRef.current);
+        progressCheckIntervalRef.current = null;
+      }
       setProcessing(false);
+    }
+  };
+
+  const handleAbortTask = async () => {
+    const service = ffmpegServiceRef.current;
+
+    if (!service || !service.getIsExecuting()) {
+      toast.warning('当前没有正在执行的任务');
+      return;
+    }
+
+    try {
+      addLog('用户请求中止任务...', 'warning');
+      
+      // 清理进度检测定时器
+      if (progressCheckIntervalRef.current) {
+        clearInterval(progressCheckIntervalRef.current);
+        progressCheckIntervalRef.current = null;
+      }
+      
+      await service.abort();
+      
+      // 清空所有状态
+      ffmpegServiceRef.current = null;
+      setLoaded(false);
+      setProcessing(false);
+      setProgress(0);
+      setCurrentStep('任务已中止');
+      
+      // 清空输出和选择的文件
+      if (outputUrl) {
+        URL.revokeObjectURL(outputUrl);
+        setOutputUrl('');
+      }
+      
+      addLog('任务已中止，请重新加载 FFmpeg', 'warning');
+      toast.info('任务已中止，请重新加载 FFmpeg');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      addLog(`中止任务失败: ${errorMessage}`, 'error');
+      toast.error(`中止任务失败: ${errorMessage}`);
     }
   };
 
@@ -315,7 +434,7 @@ export default function FFmpegWeb() {
     // 如果有表单配置，使用替换后的参数
     let args = selectedPreset.ffmpegArgs;
     if (selectedPreset.formSchema && selectedPreset.formSchema.length > 0) {
-      args = replaceTemplateVariables(selectedPreset.ffmpegArgs, formValues);
+      args = replaceTemplateVariables(selectedPreset.ffmpegArgs, extractNonFileValues(formValues));
     }
     
     const command = `ffmpeg ${args.join(' ')}`;
@@ -494,7 +613,7 @@ export default function FFmpegWeb() {
                     </div>
                     <div className="bg-slate-950 text-slate-50 p-3 rounded-lg font-mono text-xs overflow-x-auto">
                       ffmpeg {selectedPreset.formSchema && selectedPreset.formSchema.length > 0
-                        ? replaceTemplateVariables(selectedPreset.ffmpegArgs, formValues).join(' ')
+                        ? replaceTemplateVariables(selectedPreset.ffmpegArgs, extractNonFileValues(formValues)).join(' ')
                         : selectedPreset.ffmpegArgs.join(' ')}
                     </div>
                   </div>
@@ -520,9 +639,10 @@ export default function FFmpegWeb() {
                   )}
 
                   {/* 文件选择 */}
-                  <div className="space-y-3">
-                    <Label>选择输入文件</Label>
-                    {selectedPreset.inputFiles.map((input) => (
+                  {selectedPreset.inputFiles && selectedPreset.inputFiles.length > 0 && (
+                    <div className="space-y-3">
+                      <Label>选择输入文件</Label>
+                      {selectedPreset.inputFiles.map((input) => (
                       <div key={input.name} className="space-y-1">
                         <Label className="text-xs text-muted-foreground">
                           {input.name}
@@ -546,27 +666,40 @@ export default function FFmpegWeb() {
                         )}
                       </div>
                     ))}
-                  </div>
+                    </div>
+                  )}
 
-                  {/* 执行按钮 */}
-                  <Button
-                    onClick={executeCommand}
-                    disabled={
-                      processing ||
-                      selectedPreset.inputFiles.some((input) => !selectedFiles[input.name])
-                    }
-                    className="w-full mt-4"
-                    size="lg"
-                  >
-                    {processing ? (
-                      <>
-                        <Loader2Icon className="mr-2 animate-spin" />
-                        处理中...
-                      </>
-                    ) : (
-                      '执行命令'
+                  {/* 执行/中止按钮 */}
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      onClick={executeCommand}
+                      disabled={
+                        processing ||
+                        (selectedPreset.inputFiles?.some((input) => !selectedFiles[input.name]) ?? false)
+                      }
+                      className="flex-1"
+                      size="lg"
+                    >
+                      {processing ? (
+                        <>
+                          <Loader2Icon className="mr-2 animate-spin" />
+                          处理中...
+                        </>
+                      ) : (
+                        '执行命令'
+                      )}
+                    </Button>
+                    {processing && (
+                      <Button
+                        onClick={handleAbortTask}
+                        variant="destructive"
+                        size="lg"
+                      >
+                        <XIcon className="mr-2" />
+                        中止
+                      </Button>
                     )}
-                  </Button>
+                  </div>
                 </Card>
               )}
 
@@ -592,15 +725,15 @@ export default function FFmpegWeb() {
                     </Button>
                   </div>
 
-                  {selectedPreset.outputFileName.match(/\.(mp4|webm|avi|mov)$/i) ? (
+                  {(selectedPreset.outputFileName || '').match(/\.(mp4|webm|avi|mov)$/i) ? (
                     <video
                       src={outputUrl}
                       controls
                       className="w-full rounded-lg bg-black"
                     />
-                  ) : selectedPreset.outputFileName.match(/\.(mp3|wav|ogg|m4a)$/i) ? (
+                  ) : (selectedPreset.outputFileName || '').match(/\.(mp3|wav|ogg|m4a)$/i) ? (
                     <audio src={outputUrl} controls className="w-full" />
-                  ) : selectedPreset.outputFileName.match(/\.(gif|jpg|jpeg|png|webp)$/i) ? (
+                  ) : (selectedPreset.outputFileName || '').match(/\.(gif|jpg|jpeg|png|webp)$/i) ? (
                     <img
                       src={outputUrl}
                       alt="输出"
@@ -648,7 +781,7 @@ export default function FFmpegWeb() {
 
       {/* 编辑器模态框 */}
       <Dialog open={showEditor} onOpenChange={setShowEditor}>
-        <DialogContent className="max-w-[95vw] w-[95vw] max-h-[95vh]">
+        <DialogContent className="max-w-[95vw]! w-fit max-h-[95vh]">
           <div className="overflow-y-auto max-h-[calc(95vh-8rem)] pr-2">
             <DialogHeader className="mb-6">
               <DialogTitle>

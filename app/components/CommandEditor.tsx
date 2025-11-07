@@ -22,9 +22,10 @@ interface CommandEditorProps {
   preset?: CommandPreset;
   onSave: (preset: Omit<CommandPreset, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancel: () => void;
+  onFormEditorToggle?: (open: boolean) => void;
 }
 
-export function CommandEditor({ preset, onSave, onCancel }: CommandEditorProps) {
+export function CommandEditor({ preset, onSave, onCancel, onFormEditorToggle }: CommandEditorProps) {
   const [name, setName] = useState(preset?.name || '');
   const [description, setDescription] = useState(preset?.description || '');
   const [category, setCategory] = useState(preset?.category || '自定义');
@@ -38,6 +39,16 @@ export function CommandEditor({ preset, onSave, onCancel }: CommandEditorProps) 
   const [formSchema, setFormSchema] = useState<FormField[]>(preset?.formSchema || []);
   const [templateErrors, setTemplateErrors] = useState<{unknown: string[]; unused: string[]}>({unknown: [], unused: []});
   const [errors, setErrors] = useState<string[]>([]);
+
+  // 通知上层表单编辑器展开状态
+  useEffect(() => {
+    onFormEditorToggle?.(showFormEditor);
+  }, [showFormEditor, onFormEditorToggle]);
+
+  // 当预设切换时重置面板展开状态
+  useEffect(() => {
+    setShowFormEditor(false);
+  }, [preset?.id]);
 
   const handleSave = () => {
     const args = ffmpegArgs.trim().split(/\s+/).filter(Boolean);
@@ -92,9 +103,9 @@ export function CommandEditor({ preset, onSave, onCancel }: CommandEditorProps) 
   const unusedDeclared = declaredVars.filter(v => !usedVars.includes(v));
 
   return (
-    <div className={showFormEditor ? 'md:grid md:grid-cols-[1fr_380px] gap-6' : 'space-y-6'}>
+    <div className={showFormEditor ? 'grid grid-cols-[minmax(0,1fr)_380px] gap-6' : 'space-y-6'}>
       {/* 左侧：基础配置 + 命令参数 */}
-      <div className="space-y-6">
+      <div className="space-y-6 min-w-0">
         {/* 错误提示 */}
         {errors.length > 0 && (
           <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
@@ -226,7 +237,12 @@ export function CommandEditor({ preset, onSave, onCancel }: CommandEditorProps) 
             <Label htmlFor="ffmpegArgs" className="flex items-center gap-2">
               FFmpeg 参数 <Badge variant="destructive">必填</Badge>
             </Label>
-            <Button variant="outline" size="sm" type="button" onClick={() => setShowFormEditor(s => !s)}>
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={() => setShowFormEditor((s) => !s)}
+            >
               {showFormEditor ? '隐藏表单编辑器' : '显示表单编辑器'}
             </Button>
           </div>
