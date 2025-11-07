@@ -168,7 +168,7 @@ export class FFmpegService {
 					await this.ffmpeg.deleteFile(fileName).catch(() => {});
 				}
 				await this.ffmpeg.deleteFile(outputFileName).catch(() => {});
-			} catch (e) {
+			} catch (_e) {
 				// 忽略清理错误
 			}
 			throw error;

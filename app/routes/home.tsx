@@ -1,7 +1,7 @@
-import type { Route } from "./+types/home";
 import { Link } from "react-router";
+import type { Route } from "./+types/home";
 
-export function meta({}: Route.MetaArgs) {
+export function meta(_: Route.MetaArgs) {
 	return [
 		{ title: "FFmpeg Easy - 浏览器中的视频处理工具" },
 		{ name: "description", content: "使用 FFmpeg.wasm 在浏览器中处理视频" },

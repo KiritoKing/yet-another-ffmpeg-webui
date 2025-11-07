@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { FormField } from "../types/command";
-import { Label } from "./ui/label";
+import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import {
 	Select,
 	SelectContent,
@@ -9,10 +10,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "./ui/select";
-import { Badge } from "./ui/badge";
 import { Slider } from "./ui/slider";
-import { UploadIcon, XIcon } from "lucide-react";
-import { Button } from "./ui/button";
 
 interface DynamicFormProps {
 	schema: FormField[];
@@ -89,9 +87,9 @@ export function DynamicForm({ schema, values, onChange }: DynamicFormProps) {
 							{value && (
 								<div className="mt-2 space-y-1">
 									{Array.isArray(value) ? (
-										value.map((file: File, idx) => (
+										value.map((file: File) => (
 											<div
-												key={idx}
+												key={file.name}
 												className="flex items-center justify-between rounded-md border bg-muted/50 px-3 py-1.5 text-xs"
 											>
 												<span className="truncate">{file.name}</span>

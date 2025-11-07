@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from "react";
-import { useLogStore } from "../store/logStore";
-import { FFmpegService, type FFmpegMode } from "../services/ffmpegService";
+import { useEffect, useRef, useState } from "react";
 import { LogViewer } from "../components/LogViewer";
 import { ModeSelect } from "../components/ModeSelect";
 import { VideoPlayer } from "../components/VideoPlayer";
+import { type FFmpegMode, FFmpegService } from "../services/ffmpegService";
+import { useLogStore } from "../store/logStore";
 
 export default function FFmpegAdvanced() {
 	const [loaded, setLoaded] = useState(false);
@@ -181,6 +181,7 @@ export default function FFmpegAdvanced() {
 										onModeChange={setUseMultiThread}
 									/>
 									<button
+										type="button"
 										onClick={load}
 										className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
 									>
@@ -190,10 +191,14 @@ export default function FFmpegAdvanced() {
 							) : (
 								<>
 									<div>
-										<label className="block text-sm font-medium text-gray-700 mb-2">
+										<label
+											htmlFor="advanced-input-file"
+											className="block text-sm font-medium text-gray-700 mb-2"
+										>
 											选择视频文件
 										</label>
 										<input
+											id="advanced-input-file"
 											type="file"
 											accept="video/*"
 											onChange={handleFileChange}
@@ -203,13 +208,14 @@ export default function FFmpegAdvanced() {
 									</div>
 
 									<div>
-										<label className="block text-sm font-medium text-gray-700 mb-2">
+										<p className="block text-sm font-medium text-gray-700 mb-2">
 											预设命令
-										</label>
+										</p>
 										<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-											{presetCommands.map((preset, index) => (
+											{presetCommands.map((preset) => (
 												<button
-													key={index}
+													type="button"
+													key={preset.name}
 													onClick={() => setCustomCommand(preset.command)}
 													disabled={processing}
 													className="text-left p-3 rounded-lg border border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-colors disabled:opacity-50"
@@ -226,10 +232,14 @@ export default function FFmpegAdvanced() {
 									</div>
 
 									<div>
-										<label className="block text-sm font-medium text-gray-700 mb-2">
+										<label
+											htmlFor="advanced-command"
+											className="block text-sm font-medium text-gray-700 mb-2"
+										>
 											FFmpeg 命令
 										</label>
 										<textarea
+											id="advanced-command"
 											value={customCommand}
 											onChange={(e) => setCustomCommand(e.target.value)}
 											disabled={processing}
@@ -246,6 +256,7 @@ export default function FFmpegAdvanced() {
 									</div>
 
 									<button
+										type="button"
 										onClick={executeCustomCommand}
 										disabled={processing || !selectedFile}
 										className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

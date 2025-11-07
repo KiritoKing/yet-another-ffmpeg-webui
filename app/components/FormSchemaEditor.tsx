@@ -67,7 +67,10 @@ export function FormSchemaEditor({
 			)}
 			<div className="space-y-4">
 				{schema.map((field, index) => (
-					<div key={index} className="border rounded-md p-3 space-y-2 bg-card">
+					<div
+						key={field.name}
+						className="border rounded-md p-3 space-y-2 bg-card"
+					>
 						<div className="flex items-center justify-between">
 							<Input
 								value={field.name}

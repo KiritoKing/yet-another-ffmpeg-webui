@@ -1,13 +1,16 @@
-import { useState, useEffect } from "react";
+import { PlusIcon, XIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { CommandPreset, FormField } from "../types/command";
 import {
-	validatePreset,
 	extractTemplateVariables,
+	validatePreset,
 	validateTemplateUsage,
 } from "../utils/commandUtils";
+import { ArgsEditor } from "./ArgsEditor";
+import { FormSchemaEditor } from "./FormSchemaEditor";
+import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Textarea } from "./ui/textarea";
 import { Label } from "./ui/label";
 import {
 	Select,
@@ -16,11 +19,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "./ui/select";
-import { Badge } from "./ui/badge";
 import { Separator } from "./ui/separator";
-import { XIcon, PlusIcon } from "lucide-react";
-import { ArgsEditor } from "./ArgsEditor";
-import { FormSchemaEditor } from "./FormSchemaEditor";
+import { Textarea } from "./ui/textarea";
 
 interface CommandEditorProps {
 	preset?: CommandPreset;
@@ -54,7 +54,7 @@ export function CommandEditor({
 	const [formSchema, setFormSchema] = useState<FormField[]>(
 		preset?.formSchema || [],
 	);
-	const [templateErrors, setTemplateErrors] = useState<{
+	const [_templateErrors, setTemplateErrors] = useState<{
 		unknown: string[];
 		unused: string[];
 	}>({ unknown: [], unused: [] });
@@ -68,7 +68,7 @@ export function CommandEditor({
 	// 当预设切换时重置面板展开状态
 	useEffect(() => {
 		setShowFormEditor(false);
-	}, [preset?.id]);
+	}, []);
 
 	const handleSave = () => {
 		const args = ffmpegArgs.trim().split(/\s+/).filter(Boolean);
@@ -152,7 +152,14 @@ export function CommandEditor({
 						</h4>
 						<ul className="list-disc list-inside text-sm text-destructive/90 space-y-1">
 							{errors.map((error, index) => (
-								<li key={index}>{error}</li>
+								<li
+									key={`${error}-${
+										// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
+										index
+									}`}
+								>
+									{error}
+								</li>
 							))}
 						</ul>
 					</div>
@@ -245,7 +252,7 @@ export function CommandEditor({
 					</div>
 					<div className="space-y-2">
 						{inputFiles.map((file, index) => (
-							<div key={index} className="flex gap-2">
+							<div key={file.name} className="flex gap-2">
 								<Input
 									value={file.name}
 									onChange={(e) =>

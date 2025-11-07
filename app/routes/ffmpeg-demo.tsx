@@ -1,15 +1,11 @@
-import { useState, useRef, useEffect } from "react";
-import { useLogStore } from "../store/logStore";
-import {
-	FFmpegService,
-	type FFmpegMode,
-	type ExecuteCommandOptions,
-} from "../services/ffmpegService";
+import { useEffect, useRef, useState } from "react";
+import { FileUploader } from "../components/FileUploader";
+import { InfoPanel } from "../components/InfoPanel";
 import { LogViewer } from "../components/LogViewer";
 import { ModeSelect } from "../components/ModeSelect";
-import { FileUploader } from "../components/FileUploader";
 import { VideoPlayer } from "../components/VideoPlayer";
-import { InfoPanel } from "../components/InfoPanel";
+import { type FFmpegMode, FFmpegService } from "../services/ffmpegService";
+import { useLogStore } from "../store/logStore";
 
 export default function FFmpegDemo() {
 	const [loaded, setLoaded] = useState(false);
@@ -197,6 +193,7 @@ export default function FFmpegDemo() {
 										onModeChange={setUseMultiThread}
 									/>
 									<button
+										type="button"
 										onClick={load}
 										className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
 									>

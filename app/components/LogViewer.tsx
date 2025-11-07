@@ -12,7 +12,7 @@ export function LogViewer() {
 	// 自动滚动到最新日志
 	useEffect(() => {
 		logEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [logs]);
+	}, []);
 
 	const getLogColor = (type: LogEntry["type"]) => {
 		switch (type) {

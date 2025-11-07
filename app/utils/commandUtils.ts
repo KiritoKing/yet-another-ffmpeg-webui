@@ -114,7 +114,7 @@ export function parseCLICommand(cliCommand: string): Partial<CommandPreset> {
 		if (transformedArgs[i] === "-crf") {
 			const val = transformedArgs[i + 1];
 			const num = Number(val);
-			if (!isNaN(num)) {
+			if (!Number.isNaN(num)) {
 				formSchema.push({
 					name: "quality",
 					label: "CRF 质量",
@@ -306,6 +306,7 @@ export function extractTemplateVariables(args: string[]): string[] {
 	const re = /\{\{(\w+)\}\}/g;
 	for (const a of args) {
 		let m: RegExpExecArray | null;
+		// biome-ignore lint/suspicious/noAssignInExpressions: <explanation>
 		while ((m = re.exec(a))) {
 			vars.add(m[1]);
 		}
@@ -469,7 +470,7 @@ export function validateFileSize(
 ): { valid: boolean; message?: string; recommendedMaxMB?: number } {
 	const requiresReencode =
 		preset.requiresReencode ?? detectRequiresReencode(preset.ffmpegArgs);
-	const estimatedMemoryMB =
+	const _estimatedMemoryMB =
 		preset.estimatedMemoryMB ??
 		estimateMemoryRequirement(preset.ffmpegArgs, requiresReencode);
 
