@@ -1,4 +1,53 @@
+# React Router 和构建输出
 .react-router
 build
+dist
+.output
+.vercel
+.netlify
+
+# 依赖
 node_modules
-README.md
+.pnpm-store
+
+# 开发工具
+.vscode
+.idea
+
+# 日志
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 测试
+coverage
+.nyc_output
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+.github
+
+# 文档（保留 README.md）
+docs
+*.md
+!README.md
+
+# 平台配置文件
+vercel.json
+netlify.toml
+wrangler.toml
+render.yaml
+fly.toml
+railway.json
+.platform.app.yaml
+docker-compose.yml

@@ -1,0 +1,16 @@
+# Cloudflare Pages 配置文件
+# 注意：Cloudflare Pages 主要通过 Dashboard 配置构建设置
+# HTTP 头通过 public/_headers 文件配置（见下方说明）
+
+# 如果使用 Wrangler CLI 部署 Workers（非 Pages），使用以下配置：
+name = "ffmpeg-easy"
+compatibility_date = "2024-01-01"
+
+# Workers 模式配置示例
+# [site]
+# bucket = "./build/client"
+
+# 对于 Cloudflare Pages，请在 Dashboard 中配置：
+# - Build command: pnpm build
+# - Build output directory: build/client
+# - 并在 public/_headers 文件中配置 HTTP 头

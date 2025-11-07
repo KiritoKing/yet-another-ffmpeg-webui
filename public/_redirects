@@ -1,0 +1,4 @@
+# Cloudflare Pages 重定向配置
+# 支持客户端路由
+
+/*  /index.html  200

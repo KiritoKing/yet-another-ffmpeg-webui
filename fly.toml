@@ -1,0 +1,29 @@
+# Fly.io 配置文件
+app = "ffmpeg-easy"
+primary_region = "hkg"
+
+[build]
+  [build.args]
+    NODE_VERSION = "20"
+
+[env]
+  PORT = "3000"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  # 为 SharedArrayBuffer 支持配置 HTTP 头
+  [http_service.headers]
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Embedder-Policy = "require-corp"
+    Cross-Origin-Resource-Policy = "cross-origin"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256

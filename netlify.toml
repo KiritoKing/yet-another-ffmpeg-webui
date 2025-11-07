@@ -1,0 +1,30 @@
+[build]
+  command = "pnpm build"
+  publish = "build/client"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--version"
+
+# 为 SharedArrayBuffer 支持配置必要的 HTTP 头
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Embedder-Policy = "require-corp"
+    Cross-Origin-Resource-Policy = "cross-origin"
+
+# 处理客户端路由
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# 开发服务器配置
+[dev]
+  command = "pnpm dev"
+  port = 5173
+  targetPort = 5173
+  publish = "build/client"
+  autoLaunch = true

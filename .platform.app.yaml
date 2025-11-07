@@ -1,0 +1,30 @@
+# Platform.sh 配置文件
+name: ffmpeg-easy
+type: nodejs:20
+
+dependencies:
+  nodejs:
+    pnpm: "*"
+
+hooks:
+  build: |
+    pnpm install
+    pnpm build
+
+web:
+  locations:
+    "/":
+      root: "build/client"
+      index:
+        - "index.html"
+      expires: 1h
+      passthru: "/index.html"
+      rules:
+        \.(css|js|gif|jpe?g|png|svg|ico|woff2?)$:
+          expires: 1M
+      headers:
+        Cross-Origin-Opener-Policy: "same-origin"
+        Cross-Origin-Embedder-Policy: "require-corp"
+        Cross-Origin-Resource-Policy: "cross-origin"
+
+disk: 512

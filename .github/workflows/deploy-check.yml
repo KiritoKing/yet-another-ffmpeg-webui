@@ -1,0 +1,60 @@
+name: Deployment Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-deploy:
+    name: 检查部署配置
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 设置 pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 类型检查
+        run: pnpm typecheck
+
+      - name: 构建测试
+        run: pnpm build
+
+      - name: 检查部署配置文件
+        run: |
+          echo "检查配置文件是否存在..."
+          test -f vercel.json && echo "✅ vercel.json" || (echo "❌ vercel.json" && exit 1)
+          test -f netlify.toml && echo "✅ netlify.toml" || (echo "❌ netlify.toml" && exit 1)
+          test -f public/_headers && echo "✅ public/_headers" || (echo "❌ public/_headers" && exit 1)
+          test -f public/_redirects && echo "✅ public/_redirects" || (echo "❌ public/_redirects" && exit 1)
+          test -f Dockerfile && echo "✅ Dockerfile" || (echo "❌ Dockerfile" && exit 1)
+          test -f docker-compose.yml && echo "✅ docker-compose.yml" || (echo "❌ docker-compose.yml" && exit 1)
+          echo "所有配置文件检查通过！"
+
+      - name: 验证 Docker 构建
+        run: |
+          docker build -t ffmpeg-easy-test .
+          echo "✅ Docker 镜像构建成功"
+
+      - name: 生成构建报告
+        if: success()
+        run: |
+          echo "🎉 部署检查完成！"
+          echo "- ✅ TypeScript 类型检查通过"
+          echo "- ✅ 生产构建成功"
+          echo "- ✅ 所有部署配置文件完整"
+          echo "- ✅ Docker 镜像构建成功"

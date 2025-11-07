@@ -164,41 +164,53 @@ ffmpeg-easy/
 pnpm typecheck
 ```
 
+### 部署检查
+
+检查所有部署配置文件的完整性：
+
+```bash
+./scripts/check-deploy.sh
+```
+
+## 🚀 部署
+
+本项目支持多个部署平台，详细说明请查看 [DEPLOYMENT.md](./DEPLOYMENT.md)。
+
+### 一键部署
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/KiritoKing/yet-another-ffmpeg-webui)
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/KiritoKing/yet-another-ffmpeg-webui)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https://github.com/KiritoKing/yet-another-ffmpeg-webui)
+
 ### Docker 部署
 
-构建镜像：
-
 ```bash
+# 构建镜像
 docker build -t ffmpeg-easy .
-```
 
-运行容器：
-
-```bash
-npm run build
-```
-
-## Deployment
-
-### Docker Deployment
-
-To build and run using Docker:
-
-```bash
+# 运行容器
 docker run -p 3000:3000 ffmpeg-easy
+
+# 或使用 Docker Compose
+docker-compose up -d
 ```
 
 ### 支持的部署平台
 
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
+- ✅ **Vercel** - 零配置部署
+- ✅ **Netlify** - 自动 CI/CD
+- ✅ **Cloudflare Pages** - 全球 CDN
+- ✅ **Render** - 全托管部署
+- ✅ **Fly.io** - 边缘计算
+- ✅ **Railway** - 简单快捷
+- ✅ **Platform.sh** - 企业级
+- ✅ **Docker** - 完全控制
 
-- Fly.io
-- Railway
+所有平台配置已包含：
+- ✅ SharedArrayBuffer 支持（COOP/COEP 头）
+- ✅ SPA 路由重定向
+- ✅ pnpm 支持
+- ✅ Node 20 环境
 
 ## ⚠️ 注意事项
 

@@ -8,7 +8,7 @@
 - [ ] 完成文档站接入，将除了readme和agents的文档都放在文档站中，分为使用说明、开发说明、changelog和blog四个部分，框架使用Docusaurus
 - [ ] 完成SPEC kit接入，按本次迭代的最终态确定spec
 - [x] 删除测试页面，让用户可以直接进入主页面，合并homepage ✅ 2025-11-08
-- [ ] 编辑各个平台的部署json，包括vercel、netlify、serverless、cloudflare、docker等
+- [x] 编辑各个平台的部署配置，支持 Vercel、Netlify、Cloudflare、Render、Fly.io、Railway、Platform.sh、Docker ✅ 2025-11-08
 - [ ] 友善的错误处理：针对常见错误给出可读的解释和恢复方案，并区分可恢复错误和不可恢复错误
 - [ ] 处理中文、空格文件名
 
@@ -19,6 +19,9 @@
 - [x] 任务执行完成后切换命令，按钮状态不会刷新，无法执行下一个任务 ✅ 2025-11-08
 - [x] 当日志里有错误时，日志面板无法被折叠 ✅ 2025-11-08
 - [x] 重新加载ffmpeg并没有清空状态，现已使用 resetAll() 完整清空所有状态 ✅ 2025-11-08
+- [ ] 任务系统拓展完成后，每次新建任务都清空当前任务的状态
+- [ ] 有一些wasm不支持的指令要屏蔽掉
+- [ ] 中止从来都不成功
 
 # Milestones
 

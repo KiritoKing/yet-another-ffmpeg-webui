@@ -1,0 +1,10 @@
+# Cloudflare Pages HTTP 头配置
+# 为所有路由配置 SharedArrayBuffer 支持所需的头
+
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Resource-Policy: cross-origin
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  X-XSS-Protection: 1; mode=block
