@@ -63,6 +63,7 @@ export function useFFmpegWeb() {
 		setShowCLIImport,
 		setShowSettings,
 		setCopiedCommand,
+		resetAll,
 	} = useFFmpegWebStore();
 
 	const addLog = useLogStore((state) => state.addLog);
@@ -384,26 +385,28 @@ export function useFFmpegWeb() {
 		try {
 			addLog("用户请求重新加载 FFmpeg...", "info");
 
+			// 清理定时器
 			if (progressCheckIntervalRef.current) {
 				clearInterval(progressCheckIntervalRef.current);
 				progressCheckIntervalRef.current = null;
 			}
 
+			// 终止 FFmpeg 服务
 			if (service) {
 				await service.terminate();
 			}
 
+			// 清理服务引用
 			ffmpegServiceRef.current = null;
-			setLoaded(false);
-			setProcessing(false);
-			setProgress(0);
-			setCurrentStep("就绪");
-			clearLogs();
 
+			// 释放 outputUrl 占用的内存
 			if (outputUrl) {
 				URL.revokeObjectURL(outputUrl);
-				setOutputUrl("");
 			}
+
+			// 重置所有状态（包括表单、命令、预设选择等）
+			resetAll();
+			clearLogs();
 
 			addLog("FFmpeg 已清理，请重新加载", "success");
 			toast.success("FFmpeg 已清理，可以重新加载了");
