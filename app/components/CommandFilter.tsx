@@ -1,13 +1,13 @@
-import { useState, useMemo } from "react";
+import { ChevronDownIcon, FilterIcon } from "lucide-react";
+import { useMemo, useState } from "react";
 import type { CommandPreset } from "../types/command";
-import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "./ui/collapsible";
-import { FilterIcon, ChevronDownIcon } from "lucide-react";
 
 interface CommandFilterProps {
 	presets: CommandPreset[];

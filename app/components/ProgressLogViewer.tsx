@@ -1,21 +1,23 @@
+import {
+	ChevronDownIcon,
+	ChevronUpIcon,
+	CopyIcon,
+	Loader2Icon,
+	TrashIcon,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { useLogStore } from "../store/logStore";
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Button } from "./ui/button";
-import { Progress } from "./ui/progress";
 import { Badge } from "./ui/badge";
-import { ScrollArea } from "./ui/scroll-area";
+import { Button } from "./ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "./ui/collapsible";
-import {
-	ChevronDownIcon,
-	ChevronUpIcon,
-	Loader2Icon,
-	TrashIcon,
-} from "lucide-react";
+import { Progress } from "./ui/progress";
+import { ScrollArea } from "./ui/scroll-area";
 
 interface ProgressLogViewerProps {
 	progress: number;
@@ -32,10 +34,53 @@ export function ProgressLogViewer({
 	const logs = useLogStore((state) => state.logs);
 	const clearLogs = useLogStore((state) => state.clearLogs);
 
+	// 跟踪上一次的错误数量，只在新错误出现时自动展开
+	const prevErrorCountRef = useRef(0);
+
 	// 只显示最近的重要日志
 	const recentLogs = logs.slice(-50);
 	const errorLogs = logs.filter((log) => log.type === "error");
 	const warningLogs = logs.filter((log) => log.type === "warning");
+
+	// 当有新错误出现时自动展开日志面板（仅一次）
+	useEffect(() => {
+		const currentErrorCount = errorLogs.length;
+		// 只在错误数量增加时自动展开
+		if (
+			currentErrorCount > prevErrorCountRef.current &&
+			currentErrorCount > 0
+		) {
+			setIsExpanded(true);
+		}
+		prevErrorCountRef.current = currentErrorCount;
+	}, [errorLogs.length]);
+
+	// 复制所有日志
+	const handleCopyLogs = async () => {
+		if (logs.length === 0) {
+			toast.warning("暂无日志可复制");
+			return;
+		}
+
+		const logText = logs
+			.map((log) => {
+				const time = new Date(log.timestamp).toLocaleTimeString("zh-CN", {
+					hour: "2-digit",
+					minute: "2-digit",
+					second: "2-digit",
+				});
+				const type = log.type.toUpperCase().padEnd(8);
+				return `[${time}] ${type} ${log.message}`;
+			})
+			.join("\n");
+
+		try {
+			await navigator.clipboard.writeText(logText);
+			toast.success(`已复制 ${logs.length} 条日志到剪贴板`);
+		} catch {
+			toast.error("复制失败");
+		}
+	};
 
 	return (
 		<Card>
@@ -53,10 +98,21 @@ export function ProgressLogViewer({
 
 					<div className="flex items-center gap-2">
 						{logs.length > 0 && (
-							<Button variant="ghost" size="sm" onClick={clearLogs}>
-								<TrashIcon className="mr-1" />
-								清除
-							</Button>
+							<>
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={handleCopyLogs}
+									title="复制所有日志"
+								>
+									<CopyIcon className="mr-1" />
+									复制
+								</Button>
+								<Button variant="ghost" size="sm" onClick={clearLogs}>
+									<TrashIcon className="mr-1" />
+									清除
+								</Button>
+							</>
 						)}
 					</div>
 				</div>

@@ -78,7 +78,11 @@ export class FFmpegService {
 			});
 		}
 
-		const loadConfig: any = {
+		const loadConfig: {
+			coreURL: string;
+			wasmURL: string;
+			workerURL?: string;
+		} = {
 			coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
 			wasmURL: await toBlobURL(
 				`${baseURL}/ffmpeg-core.wasm`,
@@ -145,32 +149,17 @@ export class FFmpegService {
 			const uint8Data = new Uint8Array(data as Uint8Array);
 			const buffer = uint8Data.buffer.slice(0);
 
-			// 清理文件
-			try {
-				for (const fileName of fileNames) {
-					await this.ffmpeg.deleteFile(fileName);
-				}
-				await this.ffmpeg.deleteFile(outputFileName);
-				this.config.onLog?.(`清理临时文件完成`);
-			} catch (e) {
-				console.warn("清理文件失败:", e);
-			}
-
 			// 推断输出文件的 MIME 类型
 			const mimeType = this.getMimeType(outputFileName);
+
+			// 清理文件 - 使用更安全的方式
+			await this.cleanupFiles([...fileNames, outputFileName]);
 
 			return new Blob([buffer], { type: mimeType });
 		} catch (error) {
 			this.config.onLog?.(`命令执行失败: ${error}`);
-			// 确保在错误时也清理文件
-			try {
-				for (const fileName of fileNames) {
-					await this.ffmpeg.deleteFile(fileName).catch(() => {});
-				}
-				await this.ffmpeg.deleteFile(outputFileName).catch(() => {});
-			} catch (_e) {
-				// 忽略清理错误
-			}
+			// 尝试清理文件，但不抛出错误
+			await this.cleanupFiles([...fileNames, outputFileName]);
 			throw error;
 		} finally {
 			this.isExecuting = false;
@@ -181,18 +170,12 @@ export class FFmpegService {
 	 * 转换视频（便捷方法，内部调用 executeCommand）
 	 */
 	async convert(options: ConvertOptions): Promise<Blob> {
-		const {
-			inputFile,
-			outputFormat = "webm",
-			videoCodec = "libvpx-vp9",
-			quality = 30,
-			speed = 4,
-		} = options;
+		const { inputFile, outputFormat = "webm" } = options;
 
 		const inputFileName = "input.mp4";
 		const outputFileName = `output.${outputFormat}`;
 
-		// 构建 FFmpeg 参数
+		// 构建 FFmpeg 参数（使用 copy 模式避免重新编码）
 		const args = ["-i", inputFileName, "-c", "copy", outputFileName];
 
 		return this.executeCommand({
@@ -200,6 +183,40 @@ export class FFmpegService {
 			outputFileName,
 			ffmpegArgs: args,
 		});
+	}
+
+	/**
+	 * 安全地清理虚拟文件系统中的文件
+	 */
+	private async cleanupFiles(fileNames: string[]): Promise<void> {
+		if (!this.ffmpeg) return;
+
+		const ffmpeg = this.ffmpeg;
+		const results = await Promise.allSettled(
+			fileNames.map(async (fileName) => {
+				try {
+					// 先检查文件是否存在
+					await ffmpeg.readFile(fileName);
+					// 存在则删除
+					await ffmpeg.deleteFile(fileName);
+					this.config.onLog?.(`已清理文件: ${fileName}`);
+				} catch (e) {
+					// 文件不存在或删除失败，记录但不抛出错误
+					const errorMsg = e instanceof Error ? e.message : String(e);
+					if (!errorMsg.includes("ENOENT")) {
+						// 只记录非"文件不存在"的错误
+						console.warn(`清理文件 ${fileName} 失败:`, errorMsg);
+					}
+				}
+			}),
+		);
+
+		const failed = results.filter((r) => r.status === "rejected").length;
+		if (failed > 0) {
+			console.warn(`${failed}/${fileNames.length} 个文件清理失败`);
+		} else if (fileNames.length > 0) {
+			this.config.onLog?.(`清理了 ${fileNames.length} 个临时文件`);
+		}
 	}
 
 	/**

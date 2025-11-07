@@ -1,13 +1,13 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import {
-	MentionsInput,
 	Mention,
+	MentionsInput,
+	type MentionsInputStyle,
 	type OnChangeHandlerFunc,
 	type SuggestionDataItem,
-	type MentionsInputStyle,
 } from "react-mentions";
-import { Badge } from "./ui/badge";
 import { cn } from "../lib/utils";
+import { Badge } from "./ui/badge";
 
 interface ArgsEditorProps {
 	value: string;

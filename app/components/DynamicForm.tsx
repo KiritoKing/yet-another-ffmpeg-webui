@@ -24,8 +24,13 @@ export function DynamicForm({ schema, values, onChange }: DynamicFormProps) {
 	const [formValues, setFormValues] =
 		useState<Record<string, string | number | boolean | File | File[]>>(values);
 
+	// 生成一个唯一键，当 values 变化时强制重新渲染文件输入
+	const [formKey, setFormKey] = useState(0);
+
 	useEffect(() => {
 		setFormValues(values);
+		// 当 values 重置时（例如切换预设），增加 formKey 以强制重新创建文件输入
+		setFormKey((prev) => prev + 1);
 	}, [values]);
 
 	const handleChange = (
@@ -54,6 +59,7 @@ export function DynamicForm({ schema, values, onChange }: DynamicFormProps) {
 						</Label>
 						<div className="space-y-2">
 							<Input
+								key={formKey} // 强制重新创建输入框以清除文件选择
 								id={field.name}
 								type="file"
 								accept={field.accept || "video/*,audio/*"}

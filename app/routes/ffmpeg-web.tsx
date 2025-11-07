@@ -6,6 +6,7 @@ import {
 	Loader2Icon,
 	PlayIcon,
 	PlusIcon,
+	RefreshCwIcon,
 	SettingsIcon,
 	UploadIcon,
 	XIcon,
@@ -344,21 +345,28 @@ export default function FFmpegWeb() {
 			// 如果有表单配置，替换模板变量
 			let finalArgs = selectedPreset.ffmpegArgs;
 			if (selectedPreset.formSchema && selectedPreset.formSchema.length > 0) {
+				const nonFileValues = extractNonFileValues(formValues);
+
+				// 先替换表单值
 				finalArgs = replaceTemplateVariables(
 					selectedPreset.ffmpegArgs,
-					extractNonFileValues(formValues),
+					nonFileValues,
 				);
-				addLog(
-					`应用表单参数: ${JSON.stringify(extractNonFileValues(formValues))}`,
-					"info",
-				);
-				addLog(`最终命令: ${finalArgs.join(" ")}`, "info");
+
+				addLog(`应用表单参数: ${JSON.stringify(nonFileValues)}`, "info");
 			}
 
 			const dynamicOutputName = computeDynamicOutputName(
 				selectedPreset,
 				formValues,
 			);
+
+			// 最后替换 {{output}} 变量（如果存在）
+			finalArgs = finalArgs.map((arg) =>
+				arg === "{{output}}" ? dynamicOutputName : arg,
+			);
+
+			addLog(`最终命令: ${finalArgs.join(" ")}`, "info");
 
 			const outputBlob = await service.executeCommand({
 				inputFiles: inputFilesList,
@@ -385,18 +393,8 @@ export default function FFmpegWeb() {
 			toast.error(`执行失败: ${errorMessage}`);
 			setCurrentStep("执行失败");
 
-			// 清理错误的 FFmpeg 实例，避免后续任务继续出错
-			try {
-				if (service) {
-					await service.terminate();
-					ffmpegServiceRef.current = null;
-					setLoaded(false);
-					addLog("FFmpeg 实例已清理，请重新加载后再试", "warning");
-					toast.warning("FFmpeg 实例已清理，请重新加载后再试");
-				}
-			} catch (cleanupError) {
-				console.error("清理 FFmpeg 实例失败:", cleanupError);
-			}
+			// 不再自动清理 FFmpeg 实例，保留错误信息供用户查看
+			// 用户可以通过"重新加载"按钮手动清理并重新初始化
 		} finally {
 			// 清理进度检测定时器
 			if (progressCheckIntervalRef.current) {
@@ -446,6 +444,52 @@ export default function FFmpegWeb() {
 				error instanceof Error ? error.message : String(error);
 			addLog(`中止任务失败: ${errorMessage}`, "error");
 			toast.error(`中止任务失败: ${errorMessage}`);
+		}
+	};
+
+	const handleReloadFFmpeg = async () => {
+		const service = ffmpegServiceRef.current;
+
+		if (processing) {
+			toast.warning("请先中止当前任务");
+			return;
+		}
+
+		try {
+			addLog("用户请求重新加载 FFmpeg...", "info");
+
+			// 清理进度检测定时器
+			if (progressCheckIntervalRef.current) {
+				clearInterval(progressCheckIntervalRef.current);
+				progressCheckIntervalRef.current = null;
+			}
+
+			// 清理现有实例
+			if (service) {
+				await service.terminate();
+			}
+
+			// 重置所有状态
+			ffmpegServiceRef.current = null;
+			setLoaded(false);
+			setProcessing(false);
+			setProgress(0);
+			setCurrentStep("就绪");
+			clearLogs();
+
+			// 清空输出
+			if (outputUrl) {
+				URL.revokeObjectURL(outputUrl);
+				setOutputUrl("");
+			}
+
+			addLog("FFmpeg 已清理，请重新加载", "success");
+			toast.success("FFmpeg 已清理，可以重新加载了");
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error ? error.message : String(error);
+			addLog(`重新加载失败: ${errorMessage}`, "error");
+			toast.error(`重新加载失败: ${errorMessage}`);
 		}
 	};
 
@@ -625,6 +669,19 @@ export default function FFmpegWeb() {
 								onModeChange={setUseMultiThread}
 								disabled={loaded}
 							/>
+
+							{loaded && (
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={handleReloadFFmpeg}
+									disabled={processing}
+									title="重新加载 FFmpeg（如果遇到错误）"
+								>
+									<RefreshCwIcon className="size-4" />
+									重新加载
+								</Button>
+							)}
 
 							{!loaded ? (
 								<Button onClick={loadFFmpeg} disabled={loading}>

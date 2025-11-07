@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useLogStore } from "../store/logStore";
 import type { LogEntry } from "../types/log";
-import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
+import { Card } from "./ui/card";
 import { ScrollArea } from "./ui/scroll-area";
 
 export function LogViewer() {

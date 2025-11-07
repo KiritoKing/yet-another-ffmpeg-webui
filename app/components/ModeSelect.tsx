@@ -1,5 +1,6 @@
-import { Label } from "./ui/label";
+import { InfoIcon } from "lucide-react";
 import { Badge } from "./ui/badge";
+import { Label } from "./ui/label";
 import {
 	Select,
 	SelectContent,
@@ -13,7 +14,6 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "./ui/tooltip";
-import { InfoIcon } from "lucide-react";
 
 interface ModeSelectProps {
 	useMultiThread: boolean;
