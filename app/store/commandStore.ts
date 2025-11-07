@@ -1,441 +1,432 @@
+import { toast } from "sonner";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CommandPreset, FormField } from "../types/command";
-import { toast } from "sonner";
 
 interface CommandStore {
-  presets: CommandPreset[];
-  addPreset: (
-    preset: Omit<CommandPreset, "id" | "createdAt" | "updatedAt">,
-  ) => void;
-  updatePreset: (id: string, preset: Partial<CommandPreset>) => void;
-  deletePreset: (id: string) => void;
-  getPreset: (id: string) => CommandPreset | undefined;
-  importPresets: (presets: CommandPreset[]) => void;
-  exportPresets: () => CommandPreset[];
-  clearPresets: () => void;
+	presets: CommandPreset[];
+	addPreset: (
+		preset: Omit<CommandPreset, "id" | "createdAt" | "updatedAt">,
+	) => void;
+	updatePreset: (id: string, preset: Partial<CommandPreset>) => void;
+	deletePreset: (id: string) => void;
+	getPreset: (id: string) => CommandPreset | undefined;
+	importPresets: (presets: CommandPreset[]) => void;
+	exportPresets: () => CommandPreset[];
+	clearPresets: () => void;
+	resetToDefaults: () => void;
 }
 
 // 辅助函数：创建标准的单输入文件字段
 const createInput = (maxSizeMB = 500): FormField => ({
-  name: "input",
-  label: "输入文件",
-  type: "file-input",
-  accept: "video/*",
-  multiple: false,
-  maxSizeMB,
-  description: "选择要处理的视频文件",
-  required: true,
+	name: "input",
+	label: "输入文件",
+	type: "file-input",
+	accept: "video/*",
+	multiple: false,
+	maxSizeMB,
+	description: "选择要处理的视频文件",
+	required: true,
 });
 
 // 辅助函数：创建标准的输出文件字段
 const createOutput = (ext = "mp4", mimeType?: string): FormField => ({
-  name: "output",
-  label: "输出文件名",
-  type: "file-output",
-  defaultValue: `output.${ext}`,
-  defaultExtension: ext,
-  mimeType,
-  description: "输出文件的名称",
-  required: true,
+	name: "output",
+	label: "输出文件名",
+	type: "file-output",
+	defaultValue: `output.${ext}`,
+	defaultExtension: ext,
+	mimeType,
+	description: "输出文件的名称",
+	required: true,
 });
 
 // 默认预设命令
 const defaultPresets: Omit<CommandPreset, "id" | "createdAt" | "updatedAt">[] =
-  [
-    {
-      name: "复制流（不重新编码）",
-      description: "快速复制视频和音频流，不进行重新编码，速度最快",
-      category: "基础",
-      ffmpegArgs: ["-i", "{{input}}", "-c", "copy", "{{output}}"],
-      requiresReencode: false,
-      estimatedMemoryMB: 50,
-      formSchema: [
-        createInput(500),
-        createOutput("mp4"),
-      ],
-    },
-    {
-      name: "转换为 WebM",
-      description:
-        "使用 VP9 和 Opus 编码器转换为 WebM 格式（⚠️ 大文件或高分辨率视频可能极慢）",
-      category: "格式转换",
-      ffmpegArgs: [
-        "-i",
-        "{{input}}",
-        "-c:v",
-        "libvpx-vp9",
-        "-b:v",
-        "1M",
-        "-crf",
-        "32",
-        "-speed",
-        "8",
-        "-threads",
-        "4",
-        "-c:a",
-        "libopus",
-        "{{output}}",
-      ],
-      requiresReencode: true,
-      estimatedMemoryMB: 250,
-      formSchema: [
-        createInput(100), // 限制为 100MB，VP9 编码很慢
-        createOutput("webm", "video/webm"),
-      ],
-    },
-    {
-      name: "提取音频为 MP3",
-      description: "从视频中提取音频轨道并转换为 MP3 格式",
-      category: "音频提取",
-      ffmpegArgs: [
-        "-i",
-        "{{input}}",
-        "-vn",
-        "-acodec",
-        "libmp3lame",
-        "-q:a",
-        "2",
-        "{{output}}",
-      ],
-      requiresReencode: true,
-      estimatedMemoryMB: 150,
-      formSchema: [
-        createInput(300),
-        createOutput("mp3", "audio/mpeg"),
-      ],
-    },
-    {
-      name: "调整分辨率（720p）",
-      description: "将视频缩放到 1280x720 分辨率",
-      category: "视频编辑",
-      ffmpegArgs: [
-        "-i",
-        "{{input}}",
-        "-vf",
-        "scale=1280:720",
-        "-c:a",
-        "copy",
-        "{{output}}",
-      ],
-      requiresReencode: true,
-      estimatedMemoryMB: 250,
-      formSchema: [
-        createInput(200),
-        createOutput("mp4"),
-      ],
-    },
-    {
-      name: "转换为 WebM（快速）",
-      description: "使用 H.264 转 WebM 容器（不重新编码视频，速度快）",
-      category: "格式转换",
-      ffmpegArgs: [
-        "-i",
-        "{{input}}",
-        "-c:v",
-        "copy",
-        "-c:a",
-        "libopus",
-        "{{output}}",
-      ],
-      requiresReencode: false,
-      estimatedMemoryMB: 100,
-      formSchema: [
-        createInput(300),
-        createOutput("webm", "video/webm"),
-      ],
-    },
-    {
-      name: "提取视频片段",
-      description: "从第 10 秒开始提取 5 秒的视频片段",
-      category: "视频编辑",
-      ffmpegArgs: [
-        "-i",
-        "{{input}}",
-        "-ss",
-        "00:00:10",
-        "-t",
-        "00:00:05",
-        "-c",
-        "copy",
-        "{{output}}",
-      ],
-      requiresReencode: false,
-      estimatedMemoryMB: 50,
-      formSchema: [
-        createInput(500),
-        createOutput("mp4"),
-      ],
-    },
-    {
-      name: "转换为 GIF",
-      description: "将视频转换为 GIF 动图（10fps，320px 宽度）",
-      category: "格式转换",
-      ffmpegArgs: [
-        "-i",
-        "{{input}}",
-        "-vf",
-        "fps=10,scale=320:-1:flags=lanczos",
-        "-c:v",
-        "gif",
-        "{{output}}",
-      ],
-      requiresReencode: true,
-      estimatedMemoryMB: 200,
-      formSchema: [
-        createInput(100),
-        createOutput("gif", "image/gif"),
-      ],
-    },
-    {
-      name: "压缩视频",
-      description: "使用 H.264 编码器压缩视频，CRF 值 28（值越大压缩越多）",
-      category: "视频编辑",
-      ffmpegArgs: [
-        "-i",
-        "{{input}}",
-        "-c:v",
-        "libx264",
-        "-crf",
-        "28",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "128k",
-        "{{output}}",
-      ],
-      requiresReencode: true,
-      estimatedMemoryMB: 250,
-      formSchema: [
-        createInput(200),
-        createOutput("mp4"),
-      ],
-    },
-    {
-      name: "合并视频",
-      description: "按顺序合并两个视频文件",
-      category: "视频编辑",
-      ffmpegArgs: [
-        "-i",
-        "{{input1}}",
-        "-i",
-        "{{input2}}",
-        "-filter_complex",
-        "[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]",
-        "-map",
-        "[v]",
-        "-map",
-        "[a]",
-        "{{output}}",
-      ],
-      requiresReencode: true,
-      estimatedMemoryMB: 350,
-      formSchema: [
-        {
-          name: "input1",
-          label: "第一个视频",
-          type: "file-input",
-          accept: "video/*",
-          multiple: false,
-          maxSizeMB: 150,
-          description: "选择第一个要合并的视频",
-          required: true,
-        },
-        {
-          name: "input2",
-          label: "第二个视频",
-          type: "file-input",
-          accept: "video/*",
-          multiple: false,
-          maxSizeMB: 150,
-          description: "选择第二个要合并的视频",
-          required: true,
-        },
-        createOutput("mp4"),
-      ],
-    },
-    {
-      name: "旋转视频",
-      description: "使用自定义角度或方向旋转视频（支持表单化配置）",
-      category: "视频编辑",
-      ffmpegArgs: [
-        "-i",
-        "{{input}}",
-        "-vf",
-        "transpose={{direction}}",
-        "-c:a",
-        "copy",
-        "{{output}}",
-      ],
-      requiresReencode: true,
-      estimatedMemoryMB: 250,
-      formSchema: [
-        createInput(200),
-        {
-          name: "direction",
-          label: "旋转方向",
-          type: "select",
-          defaultValue: "1",
-          required: true,
-          description: "选择视频旋转的方向",
-          options: [
-            { label: "顺时针旋转 90°", value: "1" },
-            { label: "逆时针旋转 90°", value: "2" },
-            { label: "顺时针旋转 90° + 垂直翻转", value: "3" },
-            { label: "逆时针旋转 90° + 垂直翻转", value: "0" },
-          ],
-        },
-        createOutput("mp4"),
-      ],
-    },
-    {
-      name: "视频缩放（自定义）",
-      description: "自定义视频分辨率、码率和质量参数",
-      category: "视频编辑",
-      ffmpegArgs: [
-        "-i",
-        "{{input}}",
-        "-vf",
-        "scale={{width}}:{{height}}",
-        "-b:v",
-        "{{bitrate}}k",
-        "-crf",
-        "{{quality}}",
-        "-c:a",
-        "copy",
-        "{{output}}",
-      ],
-      requiresReencode: true,
-      estimatedMemoryMB: 300,
-      formSchema: [
-        createInput(200),
-        {
-          name: "width",
-          label: "宽度（像素）",
-          type: "number",
-          defaultValue: 1280,
-          min: 128,
-          max: 3840,
-          step: 2,
-          required: true,
-          description: "输出视频的宽度（必须是偶数）",
-        },
-        {
-          name: "height",
-          label: "高度（像素）",
-          type: "number",
-          defaultValue: 720,
-          min: 128,
-          max: 2160,
-          step: 2,
-          required: true,
-          description: "输出视频的高度（必须是偶数）",
-        },
-        {
-          name: "bitrate",
-          label: "视频码率（kbps）",
-          type: "slider",
-          defaultValue: 2000,
-          min: 500,
-          max: 10000,
-          step: 100,
-          description: "视频比特率，值越高质量越好但文件越大",
-        },
-        {
-          name: "quality",
-          label: "CRF 质量",
-          type: "slider",
-          defaultValue: 23,
-          min: 18,
-          max: 35,
-          step: 1,
-          description: "CRF 值：18=最高质量，28=平衡，35=最低质量",
-        },
-        createOutput("mp4"),
-      ],
-    },
-  ];
+	[
+		{
+			name: "复制流（不重新编码）",
+			description: "快速复制视频和音频流，不进行重新编码，速度最快",
+			category: "基础",
+			ffmpegArgs: ["-i", "{{input}}", "-c", "copy", "{{output}}"],
+			requiresReencode: false,
+			estimatedMemoryMB: 50,
+			formSchema: [createInput(500), createOutput("mp4")],
+		},
+		{
+			name: "转换为 WebM",
+			description:
+				"使用 VP9 和 Opus 编码器转换为 WebM 格式（⚠️ 大文件或高分辨率视频可能极慢）",
+			category: "格式转换",
+			ffmpegArgs: [
+				"-i",
+				"{{input}}",
+				"-c:v",
+				"libvpx-vp9",
+				"-b:v",
+				"1M",
+				"-crf",
+				"32",
+				"-speed",
+				"8",
+				"-threads",
+				"4",
+				"-c:a",
+				"libopus",
+				"{{output}}",
+			],
+			requiresReencode: true,
+			estimatedMemoryMB: 250,
+			formSchema: [
+				createInput(100), // 限制为 100MB，VP9 编码很慢
+				createOutput("webm", "video/webm"),
+			],
+		},
+		{
+			name: "提取音频为 MP3",
+			description: "从视频中提取音频轨道并转换为 MP3 格式",
+			category: "音频提取",
+			ffmpegArgs: [
+				"-i",
+				"{{input}}",
+				"-vn",
+				"-acodec",
+				"libmp3lame",
+				"-q:a",
+				"2",
+				"{{output}}",
+			],
+			requiresReencode: true,
+			estimatedMemoryMB: 150,
+			formSchema: [createInput(300), createOutput("mp3", "audio/mpeg")],
+		},
+		{
+			name: "调整分辨率（720p）",
+			description: "将视频缩放到 1280x720 分辨率",
+			category: "视频编辑",
+			ffmpegArgs: [
+				"-i",
+				"{{input}}",
+				"-vf",
+				"scale=1280:720",
+				"-c:a",
+				"copy",
+				"{{output}}",
+			],
+			requiresReencode: true,
+			estimatedMemoryMB: 250,
+			formSchema: [createInput(200), createOutput("mp4")],
+		},
+		{
+			name: "转换为 WebM（快速）",
+			description: "使用 H.264 转 WebM 容器（不重新编码视频，速度快）",
+			category: "格式转换",
+			ffmpegArgs: [
+				"-i",
+				"{{input}}",
+				"-c:v",
+				"copy",
+				"-c:a",
+				"libopus",
+				"{{output}}",
+			],
+			requiresReencode: false,
+			estimatedMemoryMB: 100,
+			formSchema: [createInput(300), createOutput("webm", "video/webm")],
+		},
+		{
+			name: "提取视频片段",
+			description: "从第 10 秒开始提取 5 秒的视频片段",
+			category: "视频编辑",
+			ffmpegArgs: [
+				"-i",
+				"{{input}}",
+				"-ss",
+				"00:00:10",
+				"-t",
+				"00:00:05",
+				"-c",
+				"copy",
+				"{{output}}",
+			],
+			requiresReencode: false,
+			estimatedMemoryMB: 50,
+			formSchema: [createInput(500), createOutput("mp4")],
+		},
+		{
+			name: "转换为 GIF",
+			description: "将视频转换为 GIF 动图（10fps，320px 宽度）",
+			category: "格式转换",
+			ffmpegArgs: [
+				"-i",
+				"{{input}}",
+				"-vf",
+				"fps=10,scale=320:-1:flags=lanczos",
+				"-c:v",
+				"gif",
+				"{{output}}",
+			],
+			requiresReencode: true,
+			estimatedMemoryMB: 200,
+			formSchema: [createInput(100), createOutput("gif", "image/gif")],
+		},
+		{
+			name: "压缩视频",
+			description: "使用 H.264 编码器压缩视频，CRF 值 28（值越大压缩越多）",
+			category: "视频编辑",
+			ffmpegArgs: [
+				"-i",
+				"{{input}}",
+				"-c:v",
+				"libx264",
+				"-crf",
+				"28",
+				"-c:a",
+				"aac",
+				"-b:a",
+				"128k",
+				"{{output}}",
+			],
+			requiresReencode: true,
+			estimatedMemoryMB: 250,
+			formSchema: [createInput(200), createOutput("mp4")],
+		},
+		{
+			name: "合并视频",
+			description: "按顺序合并两个视频文件",
+			category: "视频编辑",
+			ffmpegArgs: [
+				"-i",
+				"{{input1}}",
+				"-i",
+				"{{input2}}",
+				"-filter_complex",
+				"[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]",
+				"-map",
+				"[v]",
+				"-map",
+				"[a]",
+				"{{output}}",
+			],
+			requiresReencode: true,
+			estimatedMemoryMB: 350,
+			formSchema: [
+				{
+					name: "input1",
+					label: "第一个视频",
+					type: "file-input",
+					accept: "video/*",
+					multiple: false,
+					maxSizeMB: 150,
+					description: "选择第一个要合并的视频",
+					required: true,
+				},
+				{
+					name: "input2",
+					label: "第二个视频",
+					type: "file-input",
+					accept: "video/*",
+					multiple: false,
+					maxSizeMB: 150,
+					description: "选择第二个要合并的视频",
+					required: true,
+				},
+				createOutput("mp4"),
+			],
+		},
+		{
+			name: "旋转视频",
+			description: "使用自定义角度或方向旋转视频（支持表单化配置）",
+			category: "视频编辑",
+			ffmpegArgs: [
+				"-i",
+				"{{input}}",
+				"-vf",
+				"transpose={{direction}}",
+				"-c:a",
+				"copy",
+				"{{output}}",
+			],
+			requiresReencode: true,
+			estimatedMemoryMB: 250,
+			formSchema: [
+				createInput(200),
+				{
+					name: "direction",
+					label: "旋转方向",
+					type: "select",
+					defaultValue: "1",
+					required: true,
+					description: "选择视频旋转的方向",
+					options: [
+						{ label: "顺时针旋转 90°", value: "1" },
+						{ label: "逆时针旋转 90°", value: "2" },
+						{ label: "顺时针旋转 90° + 垂直翻转", value: "3" },
+						{ label: "逆时针旋转 90° + 垂直翻转", value: "0" },
+					],
+				},
+				createOutput("mp4"),
+			],
+		},
+		{
+			name: "视频缩放（自定义）",
+			description: "自定义视频分辨率、码率和质量参数",
+			category: "视频编辑",
+			ffmpegArgs: [
+				"-i",
+				"{{input}}",
+				"-vf",
+				"scale={{width}}:{{height}}",
+				"-b:v",
+				"{{bitrate}}k",
+				"-crf",
+				"{{quality}}",
+				"-c:a",
+				"copy",
+				"{{output}}",
+			],
+			requiresReencode: true,
+			estimatedMemoryMB: 300,
+			formSchema: [
+				createInput(200),
+				{
+					name: "width",
+					label: "宽度（像素）",
+					type: "number",
+					defaultValue: 1280,
+					min: 128,
+					max: 3840,
+					step: 2,
+					required: true,
+					description: "输出视频的宽度（必须是偶数）",
+				},
+				{
+					name: "height",
+					label: "高度（像素）",
+					type: "number",
+					defaultValue: 720,
+					min: 128,
+					max: 2160,
+					step: 2,
+					required: true,
+					description: "输出视频的高度（必须是偶数）",
+				},
+				{
+					name: "bitrate",
+					label: "视频码率（kbps）",
+					type: "slider",
+					defaultValue: 2000,
+					min: 500,
+					max: 10000,
+					step: 100,
+					description: "视频比特率，值越高质量越好但文件越大",
+				},
+				{
+					name: "quality",
+					label: "CRF 质量",
+					type: "slider",
+					defaultValue: 23,
+					min: 18,
+					max: 35,
+					step: 1,
+					description: "CRF 值：18=最高质量，28=平衡，35=最低质量",
+				},
+				createOutput("mp4"),
+			],
+		},
+	];
 
 export const useCommandStore = create<CommandStore>()(
-  persist(
-    (set, get) => ({
-      presets: [],
+	persist(
+		(set, get) => ({
+			presets: [],
 
-      addPreset: (preset) => {
-        const newPreset: CommandPreset = {
-          ...preset,
-          id: `preset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
-        set((state) => ({
-          presets: [...state.presets, newPreset],
-        }));
-      },
+			addPreset: (preset) => {
+				const newPreset: CommandPreset = {
+					...preset,
+					id: `preset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+					createdAt: Date.now(),
+					updatedAt: Date.now(),
+				};
+				set((state) => ({
+					presets: [...state.presets, newPreset],
+				}));
+			},
 
-      updatePreset: (id, updates) => {
-        set((state) => ({
-          presets: state.presets.map((p) =>
-            p.id === id ? { ...p, ...updates, updatedAt: Date.now() } : p
-          ),
-        }));
-      },
+			updatePreset: (id, updates) => {
+				set((state) => ({
+					presets: state.presets.map((p) =>
+						p.id === id ? { ...p, ...updates, updatedAt: Date.now() } : p,
+					),
+				}));
+			},
 
-      deletePreset: (id) => {
-        set((state) => ({
-          presets: state.presets.filter((p) => p.id !== id),
-        }));
-      },
+			deletePreset: (id) => {
+				set((state) => ({
+					presets: state.presets.filter((p) => p.id !== id),
+				}));
+			},
 
-      getPreset: (id) => {
-        return get().presets.find((p) => p.id === id);
-      },
+			getPreset: (id) => {
+				return get().presets.find((p) => p.id === id);
+			},
 
-      importPresets: (presets) => {
-        const now = Date.now();
-        const currentState = get();
-        const existingIds = new Set(currentState.presets.map((p) => p.id));
+			importPresets: (presets) => {
+				const now = Date.now();
+				const currentState = get();
+				const existingIds = new Set(currentState.presets.map((p) => p.id));
 
-        // 过滤掉重复的 ID，并为所有导入的预设生成新的 ID
-        const importedPresets = presets
-          .filter((p) => {
-            if (existingIds.has(p.id)) {
-              console.warn(`跳过重复的预设 ID: ${p.id} (${p.name})`);
-              toast.warning(`跳过重复的预设 ID: ${p.id} (${p.name})`);
-              return false;
-            }
-            return true;
-          })
-          .map((p) => ({
-            ...p,
-            id: `preset_${now}_${Math.random().toString(36).substr(2, 9)}`,
-            createdAt: p.createdAt || now,
-            updatedAt: now,
-          }));
+				// 过滤掉重复的 ID，并为所有导入的预设生成新的 ID
+				const importedPresets = presets
+					.filter((p) => {
+						if (existingIds.has(p.id)) {
+							console.warn(`跳过重复的预设 ID: ${p.id} (${p.name})`);
+							toast.warning(`跳过重复的预设 ID: ${p.id} (${p.name})`);
+							return false;
+						}
+						return true;
+					})
+					.map((p) => ({
+						...p,
+						id: `preset_${now}_${Math.random().toString(36).substr(2, 9)}`,
+						createdAt: p.createdAt || now,
+						updatedAt: now,
+					}));
 
-        set((state) => ({
-          presets: [...state.presets, ...importedPresets],
-        }));
-      },
+				set((state) => ({
+					presets: [...state.presets, ...importedPresets],
+				}));
+			},
 
-      exportPresets: () => {
-        return get().presets;
-      },
+			exportPresets: () => {
+				return get().presets;
+			},
 
-      clearPresets: () => {
-        set({ presets: [] });
-      },
-    }),
-    {
-      name: "ffmpeg-command-presets",
-      onRehydrateStorage: () => (state) => {
-        // 如果没有预设命令，添加默认预设
-        if (state && state.presets.length === 0) {
-          defaultPresets.forEach((preset) => {
-            state.addPreset(preset);
-          });
-        }
-      },
-    },
-  ),
+			clearPresets: () => {
+				set({ presets: [] });
+			},
+
+			resetToDefaults: () => {
+				const now = Date.now();
+				const initialPresets = defaultPresets.map((preset, index) => ({
+					...preset,
+					id: `default_${now}_${index}`,
+					createdAt: now,
+					updatedAt: now,
+				}));
+				set({ presets: initialPresets });
+			},
+		}),
+		{
+			name: "ffmpeg-command-presets",
+			onRehydrateStorage: () => (state) => {
+				// 如果没有预设命令，添加默认预设
+				if (state && state.presets.length === 0) {
+					defaultPresets.forEach((preset) => {
+						state.addPreset(preset);
+					});
+				}
+			},
+		},
+	),
 );
