@@ -4,6 +4,7 @@ import { type FFmpegMode, FFmpegService } from "../services/ffmpegService";
 import { useCommandStore } from "../store/commandStore";
 import { useFFmpegWebStore } from "../store/ffmpegWebStore";
 import { useLogStore } from "../store/logStore";
+import { useTaskStore } from "../store/taskStore";
 import type { CommandPreset } from "../types/command";
 import {
 	downloadJSON,
@@ -11,15 +12,18 @@ import {
 	exportPresetToJSON,
 	extractNonFileValues,
 	extractTemplateVariables,
+	formatErrorMessage,
 	getDefaultFormValues,
 	getFileInputFields,
 	getFileOutputField,
 	importPresetsFromJSON,
 	parseCLICommand,
+	parseFFmpegError,
 	replaceTemplateVariables,
 	uploadJSON,
 	validateTemplateUsage,
 } from "../utils";
+import { useTaskManager } from "./useTaskManager";
 
 /**
  * FFmpeg Web 页面核心业务逻辑 Hook
@@ -69,6 +73,8 @@ export function useFFmpegWeb() {
 	const addLog = useLogStore((state) => state.addLog);
 	const clearLogs = useLogStore((state) => state.clearLogs);
 
+	const { currentTask } = useTaskStore();
+
 	const {
 		presets,
 		addPreset,
@@ -78,6 +84,9 @@ export function useFFmpegWeb() {
 		exportPresets,
 		resetToDefaults,
 	} = useCommandStore();
+
+	// 初始化任务管理器
+	const taskManager = useTaskManager(ffmpegServiceRef);
 
 	// 初始化客户端标志
 	useEffect(() => {
@@ -254,25 +263,6 @@ export function useFFmpegWeb() {
 			addLog(`开始执行命令: ${selectedPreset.name}`, "info");
 			setCurrentStep("正在处理...");
 
-			// 构造输入文件列表
-			const inputFilesList: Array<{ file: File; name: string }> = [];
-			if (fileInputFields.length > 0) {
-				for (const field of fileInputFields) {
-					const val = formValues[field.name];
-					if (!val) continue;
-					if (field.multiple && Array.isArray(val)) {
-						for (const f of val as File[]) {
-							inputFilesList.push({ file: f, name: f.name });
-						}
-					} else if (val instanceof File) {
-						inputFilesList.push({
-							file: val as File,
-							name: (val as File).name,
-						});
-					}
-				}
-			}
-
 			// 替换模板变量
 			let finalArgs = selectedPreset.ffmpegArgs;
 			if (selectedPreset.formSchema && selectedPreset.formSchema.length > 0) {
@@ -296,29 +286,42 @@ export function useFFmpegWeb() {
 
 			addLog(`最终命令: ${finalArgs.join(" ")}`, "info");
 
-			const outputBlob = await service.executeCommand({
-				inputFiles: inputFilesList,
-				outputFileName: dynamicOutputName,
-				ffmpegArgs: finalArgs,
-			});
+			// 创建任务
+			const task = taskManager.createTask(
+				selectedPreset,
+				formValues,
+				finalArgs,
+				dynamicOutputName,
+			);
 
-			// 清理之前的 URL
-			if (outputUrl) {
-				URL.revokeObjectURL(outputUrl);
-			}
+			// 执行任务
+			const url = await taskManager.executeTask(task, formValues);
 
-			const url = URL.createObjectURL(outputBlob);
+			// 更新 UI 状态
 			setOutputUrl(url);
 			setProgress(1);
 			setCurrentStep("执行成功！");
-			addLog("命令执行成功！🎉", "success");
-			toast.success("命令执行成功！🎉");
 		} catch (error) {
 			console.error("执行错误:", error);
-			const errorMessage =
-				error instanceof Error ? error.message : String(error);
-			addLog(`执行失败: ${errorMessage}`, "error");
-			toast.error(`执行失败: ${errorMessage}`);
+			const taskError = parseFFmpegError(error);
+			const errorMessage = formatErrorMessage(taskError);
+			addLog(errorMessage, "error");
+
+			// 如果是不可恢复错误，清理 FFmpeg 实例
+			if (taskError.type === "non-recoverable") {
+				try {
+					if (service) {
+						await service.terminate();
+						ffmpegServiceRef.current = null;
+						setLoaded(false);
+						addLog("FFmpeg 实例已清理，请重新加载后再试", "warning");
+						toast.warning("FFmpeg 实例已清理，请重新加载后再试");
+					}
+				} catch (cleanupError) {
+					console.error("清理 FFmpeg 实例失败:", cleanupError);
+				}
+			}
+
 			setCurrentStep("执行失败");
 		} finally {
 			if (progressCheckIntervalRef.current) {
@@ -349,6 +352,11 @@ export function useFFmpegWeb() {
 			}
 
 			await service.abort();
+
+			// 中止任务记录
+			if (currentTask && currentTask.status === "running") {
+				taskManager.abortCurrentTask();
+			}
 
 			ffmpegServiceRef.current = null;
 			setLoaded(false);
@@ -602,5 +610,8 @@ export function useFFmpegWeb() {
 
 		// Utils
 		computeDynamicOutputName,
+
+		// Task Manager
+		taskManager,
 	};
 }
