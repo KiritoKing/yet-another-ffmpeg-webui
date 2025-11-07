@@ -5,7 +5,7 @@ import {
 	extractTemplateVariables,
 	validatePreset,
 	validateTemplateUsage,
-} from "../utils/commandUtils";
+} from "../utils";
 import { ArgsEditor } from "./ArgsEditor";
 import { FormSchemaEditor } from "./FormSchemaEditor";
 import { Badge } from "./ui/badge";

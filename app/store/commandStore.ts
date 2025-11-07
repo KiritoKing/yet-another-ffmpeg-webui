@@ -2,7 +2,7 @@ import { toast } from "sonner";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CommandPreset, FormField } from "../types/command";
-import { parseCLICommand } from "../utils/commandUtils";
+import { parseCLICommand } from "../utils";
 
 interface CommandStore {
 	presets: CommandPreset[];
@@ -458,11 +458,16 @@ export const useCommandStore = create<CommandStore>()(
 				return { ...ps, presets: migrated };
 			},
 			onRehydrateStorage: () => (state) => {
-				// 如果没有预设命令，添加默认预设
+				// 如果没有预设命令，直接初始化默认预设（不触发 actions）
 				if (state && state.presets.length === 0) {
-					defaultPresets.forEach((preset) => {
-						state.addPreset(preset);
-					});
+					const now = Date.now();
+					const initialPresets = defaultPresets.map((preset, index) => ({
+						...preset,
+						id: `default_${now}_${index}`,
+						createdAt: now,
+						updatedAt: now,
+					}));
+					state.presets = initialPresets;
 				}
 			},
 		},
