@@ -113,7 +113,7 @@ export function ExecutionPanel({
 	// 本地状态
 	const [previewTaskId, setPreviewTaskId] = useState<string | null>(null);
 	const [showQueue, setShowQueue] = useState(true);
-	const [showCompleted, setShowCompleted] = useState(false);
+	const [showCompleted, setShowCompleted] = useState(true);
 
 	// 获取预览任务
 	const previewTask = previewTaskId
