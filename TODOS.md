@@ -30,6 +30,7 @@
 - i18n多语言支持
 - AI助手接入
 - Tauri客户端接入
+- 浏览器原生高性能：正确的架构通常是 **ffmpeg.wasm（用于解复用/复用）+ WebCodecs（用于编解码）+ WebGPU（用于处理特效）
 
 # Intentions
 
