@@ -3,6 +3,7 @@ import { CommandPanel } from "../components/CommandPanel";
 import { ExecutionPanel } from "../components/ExecutionPanel";
 import {
 	CLIImportDialog,
+	ClearQueueConfirmDialog,
 	EditorDialog,
 	ResetConfirmDialog,
 	SettingsDialog,
@@ -33,6 +34,7 @@ export default function FFmpegWeb() {
 		showCLIImport,
 		showSettings,
 		showResetConfirm,
+		showClearQueueConfirm,
 		showInitDialog,
 		savedMode,
 		cliCommand,
@@ -44,6 +46,7 @@ export default function FFmpegWeb() {
 		setShowCLIImport,
 		setShowSettings,
 		setShowResetConfirm,
+		setShowClearQueueConfirm,
 		setShowInitDialog,
 		setSavedMode,
 		setCliCommand,
@@ -73,6 +76,7 @@ export default function FFmpegWeb() {
 		handleCLIImport,
 		handleCopyCommand,
 		handleResetCommands,
+		handleClearQueueConfirm,
 		addPreset,
 		updatePreset,
 		deletePreset,
@@ -382,6 +386,20 @@ export default function FFmpegWeb() {
 				onOpenChange={setShowResetConfirm}
 				onConfirm={handleResetCommands}
 				onCancel={() => setShowResetConfirm(false)}
+			/>
+
+			<ClearQueueConfirmDialog
+				open={showClearQueueConfirm}
+				queueCount={taskManager.queue.length}
+				executingCount={taskManager.executingTasks.length}
+				completedCount={taskManager.recentCompletedTasks.length}
+				hasResults={taskManager.recentCompletedTasks.some(
+					(t) => taskManager.getTaskResult(t.id) !== undefined,
+				)}
+				completedTasks={taskManager.recentCompletedTasks}
+				onOpenChange={setShowClearQueueConfirm}
+				onConfirm={handleClearQueueConfirm}
+				onCancel={() => setShowClearQueueConfirm(false)}
 			/>
 		</div>
 	);

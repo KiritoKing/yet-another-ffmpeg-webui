@@ -106,6 +106,40 @@ export function useFFmpegWeb() {
 		}
 	}, [presets, selectedPreset, setSelectedPreset]);
 
+	// 用于跟踪上一个选中的预设ID
+	const previousPresetIdRef = useRef<string | null>(null);
+
+	// 监听命令切换，检查是否需要清空队列
+	useEffect(() => {
+		const currentPresetId = selectedPreset?.id || null;
+		const previousPresetId = previousPresetIdRef.current;
+
+		// 第一次选择或者没有切换命令，不处理
+		if (!previousPresetId || previousPresetId === currentPresetId) {
+			previousPresetIdRef.current = currentPresetId;
+			return;
+		}
+
+		// 命令切换了，检查是否有需要清空的内容
+		const hasQueuedTasks = taskManager.queue.length > 0;
+		const hasExecutingTasks = taskManager.executingTasks.length > 0;
+		const hasCompletedTasks = taskManager.recentCompletedTasks.length > 0;
+
+		// 如果有任何任务（队列、执行中或已完成），则显示确认对话框
+		if (hasQueuedTasks || hasExecutingTasks || hasCompletedTasks) {
+			const { setShowClearQueueConfirm } = useFFmpegWebStore.getState();
+			setShowClearQueueConfirm(true);
+		}
+
+		// 更新上一个预设ID
+		previousPresetIdRef.current = currentPresetId;
+	}, [
+		selectedPreset,
+		taskManager.queue.length,
+		taskManager.executingTasks.length,
+		taskManager.recentCompletedTasks.length,
+	]);
+
 	/**
 	 * 计算动态输出文件名
 	 */
@@ -531,6 +565,22 @@ export function useFFmpegWeb() {
 		setOutputUrl("");
 	};
 
+	/**
+	 * 处理清空队列确认
+	 */
+	const handleClearQueueConfirm = () => {
+		// 清空队列
+		taskManager.clearQueue();
+		// 清空所有任务结果
+		taskManager.clearAllTaskResults();
+		// 关闭对话框
+		const { setShowClearQueueConfirm } = useFFmpegWebStore.getState();
+		setShowClearQueueConfirm(false);
+
+		addLog("已清空任务队列和结果", "info");
+		toast.success("已清空任务队列和结果");
+	};
+
 	return {
 		// State
 		isClient,
@@ -555,6 +605,7 @@ export function useFFmpegWeb() {
 		handleCLIImport,
 		handleCopyCommand,
 		handleResetCommands,
+		handleClearQueueConfirm,
 
 		// Command Store Actions
 		addPreset,

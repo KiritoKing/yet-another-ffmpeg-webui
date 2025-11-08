@@ -30,6 +30,7 @@ interface FFmpegWebState {
 	showCLIImport: boolean;
 	showSettings: boolean;
 	showResetConfirm: boolean;
+	showClearQueueConfirm: boolean;
 
 	// 表单和数据
 	cliCommand: string;
@@ -56,6 +57,7 @@ interface FFmpegWebState {
 	setShowCLIImport: (show: boolean) => void;
 	setShowSettings: (show: boolean) => void;
 	setShowResetConfirm: (show: boolean) => void;
+	setShowClearQueueConfirm: (show: boolean) => void;
 
 	setCliCommand: (command: string) => void;
 	setOutputUrl: (url: string) => void;
@@ -95,6 +97,7 @@ export const useFFmpegWebStore = create<FFmpegWebState>()(
 			showCLIImport: false,
 			showSettings: false,
 			showResetConfirm: false,
+			showClearQueueConfirm: false,
 
 			cliCommand: "",
 			outputUrl: "",
@@ -121,6 +124,7 @@ export const useFFmpegWebStore = create<FFmpegWebState>()(
 			setShowCLIImport: (show) => set({ showCLIImport: show }),
 			setShowSettings: (show) => set({ showSettings: show }),
 			setShowResetConfirm: (show) => set({ showResetConfirm: show }),
+			setShowClearQueueConfirm: (show) => set({ showClearQueueConfirm: show }),
 
 			setCliCommand: (command) => set({ cliCommand: command }),
 			setOutputUrl: (url) => set({ outputUrl: url }),
