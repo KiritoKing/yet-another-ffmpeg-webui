@@ -25,11 +25,8 @@ export default function FFmpegWeb() {
 		isClient,
 		loaded,
 		processing,
-		progress,
-		currentStep,
 		selectedPreset,
 		editingPreset,
-		outputUrl,
 		formValues,
 		selectedCategories,
 		showEditor,
@@ -62,19 +59,16 @@ export default function FFmpegWeb() {
 		useMultiThread,
 		loadFFmpeg,
 		executeCommand,
-		handleAbortTask,
 		handleReloadFFmpeg,
 		handleExportAll,
 		handleImportJSON,
 		handleExportPreset,
 		handleCLIImport,
-		handleDownload,
 		handleCopyCommand,
 		handleResetCommands,
 		addPreset,
 		updatePreset,
 		deletePreset,
-		computeDynamicOutputName,
 		taskManager,
 	} = useFFmpegWeb();
 
@@ -239,14 +233,8 @@ export default function FFmpegWeb() {
 								copiedCommand={copiedCommand}
 								onFormChange={setFormValues}
 								onCopyCommand={handleCopyCommand}
-								computeOutputName={computeDynamicOutputName}
 								// 执行控制
-								processing={processing}
-								progress={progress}
-								currentStep={currentStep}
-								outputUrl={outputUrl}
 								onExecute={executeCommand}
-								onDownload={handleDownload}
 								// 队列相关
 								queue={taskManager.queue}
 								executingTasks={taskManager.executingTasks}

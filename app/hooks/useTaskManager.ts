@@ -351,6 +351,11 @@ export function useTaskManager(
 						addLog(msg, "error");
 					}
 				},
+				onTaskAbort: (taskId) => {
+					abortTask(taskId);
+					removeExecutingTask(taskId);
+					addLog(`[队列] 任务已中止`, "warning");
+				},
 				onLog: (message, type) => {
 					addLog(message, type as "info" | "warning" | "error" | "success");
 				},
@@ -384,6 +389,7 @@ export function useTaskManager(
 		startTask,
 		completeTask,
 		failTask,
+		abortTask,
 		setTaskResult,
 		clearQueue,
 		addLog,
@@ -395,11 +401,11 @@ export function useTaskManager(
 	/**
 	 * 停止队列处理
 	 */
-	const stopQueue = useCallback(() => {
+	const stopQueue = useCallback(async () => {
 		if (queueProcessorRef.current) {
-			queueProcessorRef.current.stop();
 			addLog("正在停止队列处理...", "warning");
 			toast.info("正在停止队列处理...");
+			await queueProcessorRef.current.stop();
 		}
 	}, [addLog]);
 

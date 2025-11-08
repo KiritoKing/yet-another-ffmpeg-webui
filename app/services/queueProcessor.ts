@@ -86,18 +86,26 @@ export class QueueProcessor {
 	/**
 	 * 停止处理队列并中止所有正在执行的任务
 	 */
-	stop(): void {
+	async stop(): Promise<void> {
 		this.shouldStop = true;
 
 		// 中止所有正在执行的任务
+		const abortPromises: Promise<void>[] = [];
 		for (const [taskId, service] of this.executingServices.entries()) {
 			try {
-				service.abort();
+				// abort() 现在是异步的，需要等待
+				const abortPromise = service.abort().catch((error) => {
+					console.error(`中止任务 ${taskId} 失败:`, error);
+				});
+				abortPromises.push(abortPromise);
 				this.config.onLog?.(`[队列] 中止任务: ${taskId}`, "warning");
 			} catch (error) {
 				console.error(`中止任务 ${taskId} 失败:`, error);
 			}
 		}
+
+		// 等待所有中止操作完成
+		await Promise.all(abortPromises);
 
 		this.config.onLog?.(
 			"[队列] 队列已停止，所有正在执行的任务已中止",

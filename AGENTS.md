@@ -281,6 +281,67 @@ docker run -p 3000:3000 ffmpeg-easy
 
 ## 更新日志
 
+### 2025-11-08 (v4.1)
+- **任务中止问题修复** 🔧
+  - **问题**: 中止任务后重新提交会报错 "FFmpeg 未加载"
+  - **根本原因**: `FFmpegService.abort()` 调用 `terminate()` 销毁实例，但未重新加载
+  - **解决方案**: 
+    - 将 `abort()` 改为异步方法
+    - 中止后立即重新加载 FFmpeg 实例
+    - 保证实例始终可用，避免"未加载"错误
+  - **修改文件**:
+    - `ffmpegService.ts`: `abort()` 方法重构（终止 + 重新加载）
+    - `queueProcessor.ts`: `stop()` 改为异步，等待所有中止完成
+    - `useTaskManager.ts`: `stopQueue()` 改为异步
+  - **测试场景**: 
+    - ✅ 提交任务 → 执行成功
+    - ✅ 中止任务 → FFmpeg 终止并重新加载
+    - ✅ 重新提交 → 使用已重新加载的实例，正常执行
+    - ✅ 多次中止/重新提交 → 每次都能正常工作
+
+- **日志系统增强** ✨
+  - 新增日志搜索功能（防抖 300ms）
+  - 可点击类型筛选（全部/错误/警告）
+  - 支持手动清空日志
+  - 支持复制所有日志
+  - 智能自动滚动：
+    - 监听滚动位置，检测用户是否在底部
+    - 仅当在底部时自动滚动到最新日志
+    - 手动滚动上去时停止自动滚动
+    - 有筛选条件时不自动滚动（避免干扰用户查看）
+  - 使用 `ahooks` 的 `useDebounceFn` 优化搜索性能
+  - 虚拟滚动渲染优化（48px 行高）
+
+- **UI/UX 优化** 🎨
+  - 移除全局进度条（任务队列中已有各任务进度）
+  - 精简 `ProgressLogViewer` 组件：
+    - 移除所有 props（progress, currentStep, isExecuting）
+    - 只保留日志展示功能
+    - 移除 Card 包装，使用更紧凑的布局
+  - 移除输出预览区域（结果在队列面板预览）
+  - 优化提示框位置（Tooltip 从 right 改为 bottom）
+
+- **代码清理** 🧹
+  - 删除 4 个未使用的组件文件（~200 行）:
+    - `FileUploader.tsx`
+    - `VideoPlayer.tsx`
+    - `InfoPanel.tsx`
+    - `LogViewer.tsx`
+  - 删除 `useFFmpegWeb.ts` 中的未使用方法（~70 行）:
+    - `handleAbortTask()` - 58 行
+    - `handleDownload()` - 11 行
+  - 清理 `ffmpegWebStore.ts`:
+    - 移除 `setProcessing` action
+    - 移除 `resetExecutionState()` action
+  - 简化 `ExecutionPanel`:
+    - 移除 progress/currentStep/processing/outputUrl props
+    - 移除 outputUrl 预览部分（67 行）
+  - 统一首页路由：直接重定向到 FFmpeg Web 主界面
+  - 删除测试路由文件
+
+- **新增依赖** 📦
+  - `ahooks@^3.9.6` - React Hooks 工具库（用于防抖）
+
 ### 2025-11-08 (v4.0)
 - **任务队列系统完整实现** 🎉
   - **核心功能**:

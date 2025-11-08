@@ -58,18 +58,9 @@ interface ExecutionPanelProps {
 		values: Record<string, string | number | boolean | File | File[]>,
 	) => void;
 	onCopyCommand: () => void;
-	computeOutputName: (
-		preset: CommandPreset,
-		values: Record<string, unknown>,
-	) => string;
 
 	// 执行控制
-	processing: boolean;
-	progress: number;
-	currentStep: string;
-	outputUrl: string;
 	onExecute: () => void;
-	onDownload: () => void;
 
 	// 队列相关
 	queue: Task[];
@@ -98,15 +89,9 @@ export function ExecutionPanel({
 	copiedCommand,
 	onFormChange,
 	onCopyCommand,
-	computeOutputName,
 
 	// 执行控制
-	processing,
-	progress,
-	currentStep,
-	outputUrl,
 	onExecute,
-	onDownload,
 
 	// 队列相关
 	queue,
@@ -125,7 +110,7 @@ export function ExecutionPanel({
 }: ExecutionPanelProps) {
 	// 本地状态
 	const [previewTaskId, setPreviewTaskId] = useState<string | null>(null);
-	const [showQueue, setShowQueue] = useState(false);
+	const [showQueue, setShowQueue] = useState(true);
 	const [showCompleted, setShowCompleted] = useState(false);
 
 	// 获取预览任务
@@ -257,7 +242,7 @@ export function ExecutionPanel({
 					</Card>
 				)}
 
-				{/* 执行/中止按钮 */}
+				{/* 提交任务按钮 */}
 				<div className="flex gap-2 mt-4">
 					<Button
 						onClick={onExecute}
@@ -266,7 +251,7 @@ export function ExecutionPanel({
 						size="lg"
 					>
 						<Plus className="mr-2" />
-						提交任务
+						提交任务到队列
 					</Button>
 				</div>
 			</Card>
@@ -547,79 +532,8 @@ export function ExecutionPanel({
 					)}
 			</Card>
 
-			{/* 3. 进度和日志 */}
-			<ProgressLogViewer
-				progress={progress}
-				currentStep={currentStep}
-				isExecuting={processing}
-			/>
-
-			{/* 4. 输出预览 */}
-			{outputUrl && (
-				<Card className="p-6">
-					<div className="flex items-center justify-between mb-4">
-						<h3 className="text-lg font-semibold">输出预览</h3>
-						<Button onClick={onDownload} variant="default" size="sm">
-							<DownloadIcon className="mr-2" />
-							下载文件
-						</Button>
-					</div>
-
-					{(() => {
-						const outName = computeOutputName(selectedPreset, formValues);
-						if (/\.(mp4|webm|avi|mov)$/i.test(outName)) {
-							return (
-								<video
-									src={outputUrl}
-									controls
-									className="w-full rounded-lg bg-black"
-									aria-label="输出视频预览"
-								>
-									<track
-										kind="captions"
-										src="data:text/vtt,WEBVTT%0A%0A"
-										srcLang="zh"
-										label="空字幕"
-										default
-									/>
-								</video>
-							);
-						}
-						if (/\.(mp3|wav|ogg|m4a)$/i.test(outName)) {
-							return (
-								<audio
-									src={outputUrl}
-									controls
-									className="w-full"
-									aria-label="输出音频预览"
-								>
-									<track
-										kind="captions"
-										src="data:text/vtt,WEBVTT%0A%0A"
-										srcLang="zh"
-										label="空字幕"
-										default
-									/>
-								</audio>
-							);
-						}
-						if (/\.(gif|jpg|jpeg|png|webp)$/i.test(outName)) {
-							return (
-								<img
-									src={outputUrl}
-									alt="输出文件预览"
-									className="w-full rounded-lg"
-								/>
-							);
-						}
-						return (
-							<p className="text-muted-foreground text-sm">
-								文件已生成，点击"下载文件"按钮保存
-							</p>
-						);
-					})()}
-				</Card>
-			)}
+			{/* 3. 日志 */}
+			<ProgressLogViewer />
 
 			{/* 预览对话框 */}
 			{previewTask && previewUrl && (

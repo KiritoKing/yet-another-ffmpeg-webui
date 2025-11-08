@@ -4,7 +4,6 @@ import { type FFmpegMode, FFmpegService } from "../services/ffmpegService";
 import { useCommandStore } from "../store/commandStore";
 import { useFFmpegWebStore } from "../store/ffmpegWebStore";
 import { useLogStore } from "../store/logStore";
-import { useTaskStore } from "../store/taskStore";
 import type { CommandPreset } from "../types/command";
 import {
 	downloadJSON,
@@ -55,7 +54,6 @@ export function useFFmpegWeb() {
 		setLoaded,
 		setLoading,
 		setUseMultiThread,
-		setProcessing,
 		setProgress,
 		setCurrentStep,
 		setSelectedPreset,
@@ -72,8 +70,6 @@ export function useFFmpegWeb() {
 
 	const addLog = useLogStore((state) => state.addLog);
 	const clearLogs = useLogStore((state) => state.clearLogs);
-
-	const { currentTask } = useTaskStore();
 
 	const {
 		presets,
@@ -352,54 +348,6 @@ export function useFFmpegWeb() {
 		taskManager.addTasksToQueue([task]);
 		toast.success("任务已添加到队列");
 	};
-
-	/**
-	 * 中止任务
-	 */
-	const handleAbortTask = async () => {
-		const service = ffmpegServiceRef.current;
-
-		if (!service || !service.getIsExecuting()) {
-			toast.warning("当前没有正在执行的任务");
-			return;
-		}
-
-		try {
-			addLog("用户请求中止任务...", "warning");
-
-			if (progressCheckIntervalRef.current) {
-				clearInterval(progressCheckIntervalRef.current);
-				progressCheckIntervalRef.current = null;
-			}
-
-			await service.abort();
-
-			// 中止任务记录
-			if (currentTask && currentTask.status === "running") {
-				taskManager.abortCurrentTask();
-			}
-
-			ffmpegServiceRef.current = null;
-			setLoaded(false);
-			setProcessing(false);
-			setProgress(0);
-			setCurrentStep("任务已中止");
-
-			if (outputUrl) {
-				URL.revokeObjectURL(outputUrl);
-				setOutputUrl("");
-			}
-
-			addLog("任务已中止，请重新加载 FFmpeg", "warning");
-			toast.info("任务已中止，请重新加载 FFmpeg");
-		} catch (error) {
-			const errorMessage =
-				error instanceof Error ? error.message : String(error);
-			addLog(`中止任务失败: ${errorMessage}`, "error");
-			toast.error(`中止任务失败: ${errorMessage}`);
-		}
-	};
-
 	/**
 	 * 重新加载 FFmpeg
 	 */
@@ -545,20 +493,6 @@ export function useFFmpegWeb() {
 			toast.error(`CLI 解析失败: ${errorMsg}`);
 		}
 	};
-
-	/**
-	 * 下载文件
-	 */
-	const handleDownload = () => {
-		if (!outputUrl || !selectedPreset) return;
-		const a = document.createElement("a");
-		a.href = outputUrl;
-		const dynamicName = computeDynamicOutputName(selectedPreset, formValues);
-		a.download = dynamicName;
-		a.click();
-		toast.success("文件下载成功");
-	};
-
 	/**
 	 * 复制命令
 	 */
@@ -614,13 +548,11 @@ export function useFFmpegWeb() {
 		// Actions
 		loadFFmpeg,
 		executeCommand,
-		handleAbortTask,
 		handleReloadFFmpeg,
 		handleExportAll,
 		handleImportJSON,
 		handleExportPreset,
 		handleCLIImport,
-		handleDownload,
 		handleCopyCommand,
 		handleResetCommands,
 

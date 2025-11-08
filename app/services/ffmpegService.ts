@@ -311,8 +311,9 @@ export class FFmpegService {
 
 	/**
 	 * 中止当前正在执行的任务
+	 * 注意：会终止并重新加载 FFmpeg 实例以确保干净状态
 	 */
-	abort(): void {
+	async abort(): Promise<void> {
 		if (!this.isExecuting) {
 			this.config.onLog?.("没有正在执行的任务");
 			return;
@@ -321,12 +322,39 @@ export class FFmpegService {
 		this.config.onLog?.("正在中止当前任务...");
 		this.isAborting = true;
 
+		// 保存配置，因为 terminate 后需要重新加载
+		const savedMode = this.config.mode;
+		const savedOnLog = this.config.onLog;
+		const savedOnProgress = this.config.onProgress;
+
 		// 调用 terminate 强制结束 FFmpeg 进程
 		if (this.ffmpeg) {
 			this.ffmpeg.terminate();
 			this.ffmpeg = null;
 			this.loaded = false;
 			this.isExecuting = false;
+		}
+
+		// 立即重新加载，保持实例可用
+		try {
+			this.config.onLog?.("正在重新加载 FFmpeg...");
+
+			// 重置状态
+			this.config = {
+				mode: savedMode,
+				onLog: savedOnLog,
+				onProgress: savedOnProgress,
+			};
+			this.loaded = false;
+			this.isExecuting = false;
+			this.isAborting = false;
+
+			// 重新加载
+			await this.load();
+			this.config.onLog?.("FFmpeg 已重新加载，可继续使用");
+		} catch (error) {
+			this.config.onLog?.(`重新加载失败: ${error}`);
+			throw error;
 		}
 	}
 
