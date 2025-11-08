@@ -1,6 +1,25 @@
-import { DownloadIcon, FileIcon, PencilIcon, TrashIcon } from "lucide-react";
+import {
+	AudioLines,
+	Copy,
+	Crop,
+	DownloadIcon,
+	FileVideo,
+	PencilIcon,
+	Repeat2,
+	ScissorsIcon,
+	Share2,
+	TrashIcon,
+	Video,
+	Wand2,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import type { CommandPreset } from "../types/command";
+import {
+	Accordion,
+	AccordionContent,
+	AccordionItem,
+	AccordionTrigger,
+} from "./ui/accordion";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -11,36 +30,75 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "./ui/alert-dialog";
+import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Card, CardDescription, CardTitle } from "./ui/card";
 import { ScrollArea } from "./ui/scroll-area";
-import { Separator } from "./ui/separator";
 
 interface CommandListProps {
 	presets: CommandPreset[];
+	categoryOrder: string[];
 	selectedId?: string;
 	onSelect: (preset: CommandPreset) => void;
 	onEdit: (preset: CommandPreset) => void;
 	onDelete: (preset: CommandPreset) => void;
 	onExport: (preset: CommandPreset) => void;
 	selectedCategories: Set<string>;
+	searchQuery?: string;
+}
+
+// 根据分类返回对应的图标
+function getCategoryIcon(category: string) {
+	const iconClass = "h-4 w-4 shrink-0";
+	switch (category) {
+		case "格式转换":
+			return <Repeat2 className={iconClass} />;
+		case "视频处理":
+			return <Video className={iconClass} />;
+		case "音频处理":
+			return <AudioLines className={iconClass} />;
+		case "基础操作":
+			return <Copy className={iconClass} />;
+		default:
+			return <FileVideo className={iconClass} />;
+	}
+}
+
+// 根据命令名称返回更具体的图标
+function getCommandIcon(name: string) {
+	const iconClass = "h-4 w-4 mr-3 text-muted-foreground";
+	if (name.includes("GIF")) return <Share2 className={iconClass} />;
+	if (name.includes("裁剪") || name.includes("片段"))
+		return <ScissorsIcon className={iconClass} />;
+	if (name.includes("分辨率") || name.includes("缩放"))
+		return <Crop className={iconClass} />;
+	if (name.includes("音频")) return <AudioLines className={iconClass} />;
+	if (name.includes("压缩") || name.includes("编辑"))
+		return <Wand2 className={iconClass} />;
+	return <FileVideo className={iconClass} />;
 }
 
 export function CommandList({
 	presets,
+	categoryOrder,
 	selectedId,
 	onSelect,
 	onEdit,
 	onDelete,
 	onExport,
 	selectedCategories,
+	searchQuery = "",
 }: CommandListProps) {
-	// 筛选后的预设
+	// 筛选后的预设（按分类和搜索关键词）
 	const filteredPresets = useMemo(() => {
-		return presets.filter((p) =>
-			selectedCategories.has(p.category || "未分类"),
-		);
-	}, [presets, selectedCategories]);
+		return presets.filter((p) => {
+			const categoryMatch = selectedCategories.has(p.category || "未分类");
+			const searchMatch =
+				!searchQuery ||
+				p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+				p.description?.toLowerCase().includes(searchQuery.toLowerCase());
+			return categoryMatch && searchMatch;
+		});
+	}, [presets, selectedCategories, searchQuery]);
 
 	// 待删除的预设
 	const [presetToDelete, setPresetToDelete] = useState<CommandPreset | null>(
@@ -60,157 +118,157 @@ export function CommandList({
 		{} as Record<string, CommandPreset[]>,
 	);
 
-	const categories = Object.keys(groupedPresets).sort();
+	const categories = useMemo(() => {
+		const categoryKeys = Object.keys(groupedPresets);
+		if (categoryKeys.length === 0) return categoryKeys;
+		if (!categoryOrder || categoryOrder.length === 0) {
+			return categoryKeys.sort();
+		}
+		const normalizedOrder = categoryOrder.filter((category) =>
+			categoryKeys.includes(category),
+		);
+		const remaining = categoryKeys.filter(
+			(category) => !normalizedOrder.includes(category),
+		);
+		return [...normalizedOrder, ...remaining.sort()];
+	}, [groupedPresets, categoryOrder]);
+
+	// 默认展开所有分类
+	const defaultOpenCategories = categories;
 
 	return (
 		<>
 			<ScrollArea className="h-full">
-				<div className="space-y-6 pr-4">
-					{categories.map((category) => (
-						<div key={category}>
-							<div className="flex items-center gap-2 mb-3 px-1">
-								<div className="h-px flex-1 bg-border"></div>
-								<h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-									{category}
-								</h3>
-								<div className="h-px flex-1 bg-border"></div>
-							</div>
-							<div className="space-y-3">
-								{groupedPresets[category].map((preset) => (
-									<Card
-										key={preset.id}
-										className={`group cursor-pointer transition-all overflow-hidden ${
-											selectedId === preset.id
-												? "border-primary bg-primary/5 shadow-lg ring-2 ring-primary/20"
-												: "hover:border-primary/40 hover:shadow-md hover:bg-accent/5"
-										}`}
-										onClick={() => onSelect(preset)}
-									>
-										<div className="relative p-4">
-											{/* 选中指示器 */}
-											{selectedId === preset.id && (
-												<div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full" />
-											)}
+				<div className="space-y-2 pr-3">
+					{categories.length > 0 ? (
+						<Accordion
+							type="multiple"
+							defaultValue={defaultOpenCategories}
+							className="space-y-2"
+						>
+							{categories.map((category) => (
+								<AccordionItem
+									key={category}
+									value={category}
+									className="border! rounded-lg px-2"
+								>
+									<AccordionTrigger className="text-sm font-semibold hover:no-underline py-3">
+										<div className="flex items-center gap-2">
+											{getCategoryIcon(category)}
+											<span>{category}</span>
+											<Badge variant="outline" className="ml-2 text-[10px] h-4">
+												{groupedPresets[category].length}
+											</Badge>
+										</div>
+									</AccordionTrigger>
+									<AccordionContent>
+										<div className="flex flex-col gap-1 pb-2">
+											{groupedPresets[category].map((preset) => {
+												const isSelected = selectedId === preset.id;
+												const inputs =
+													preset.formSchema?.filter(
+														(f) => f.type === "file-input",
+													) || [];
+												const hasMultiple = inputs.some((f) => f.multiple);
 
-											<div className="flex items-start gap-3">
-												{/* 主内容区 */}
-												<div className="flex-1 min-w-0 space-y-3">
-													{/* 标题和描述 */}
-													<div>
-														<CardTitle className="text-base font-semibold mb-1.5 truncate">
-															{preset.name}
-														</CardTitle>
-														{preset.description && (
-															<CardDescription className="text-xs line-clamp-2 leading-relaxed">
-																{preset.description}
-															</CardDescription>
-														)}
-													</div>
-
-													{/* 文件信息 */}
-													<div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2 border border-border/50">
-														<FileIcon className="size-3.5 shrink-0 text-primary/60" />
-														{(() => {
-															const inputs =
-																preset.formSchema?.filter(
-																	(f) => f.type === "file-input",
-																) || [];
-															const multi = inputs.find((f) => f.multiple);
-															return (
-																<span className="font-medium flex items-center gap-1">
-																	{inputs.length} 个输入
-																	{multi && (
-																		<span
-																			className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary border border-primary/20"
-																			title="支持批量文件，将自动拆分为多个任务"
-																		>
-																			批量
+												return (
+													<div key={preset.id} className="group relative">
+														<button
+															type="button"
+															className={`w-full flex items-center justify-between rounded-md transition-all text-left pr-2 ${
+																isSelected
+																	? "bg-primary/10 border-2 border-primary"
+																	: "hover:bg-accent/50 border-2 border-transparent"
+															}`}
+															onClick={() => onSelect(preset)}
+														>
+															{/* 主内容区 */}
+															<div className="flex items-start gap-2 flex-1 min-w-0 p-3 pr-0">
+																{getCommandIcon(preset.name)}
+																<div className="flex flex-col items-start flex-1 min-w-0">
+																	<div className="flex items-center gap-2 w-full">
+																		<span className="font-medium text-sm truncate">
+																			{preset.name}
+																		</span>
+																		{hasMultiple && (
+																			<Badge
+																				variant="secondary"
+																				className="text-[9px] h-4 px-1.5 shrink-0"
+																			>
+																				批量
+																			</Badge>
+																		)}
+																	</div>
+																	{preset.description && (
+																		<span className="text-xs text-muted-foreground mt-1 line-clamp-2 text-left pr-24">
+																			{preset.description}
 																		</span>
 																	)}
-																</span>
-															);
-														})()}
-														<Separator orientation="vertical" className="h-3" />
-														<span
-															className="truncate flex-1"
-															title={
-																(preset.formSchema?.find(
-																	(f) => f.type === "file-output",
-																)?.defaultValue as string) || "output"
-															}
-														>
-															{(preset.formSchema?.find(
-																(f) => f.type === "file-output",
-															)?.defaultValue as string) || "output"}
-														</span>
+																</div>
+															</div>
+
+															{/* 操作按钮区 - 绝对定位在右侧 */}
+															<div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/95 backdrop-blur-sm rounded-md p-1 shadow-sm">
+																<Button
+																	variant="ghost"
+																	size="icon"
+																	className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+																	onClick={(e) => {
+																		e.stopPropagation();
+																		onEdit(preset);
+																	}}
+																	title="编辑"
+																>
+																	<PencilIcon className="h-3.5 w-3.5" />
+																</Button>
+																<Button
+																	variant="ghost"
+																	size="icon"
+																	className="h-7 w-7 hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400"
+																	onClick={(e) => {
+																		e.stopPropagation();
+																		onExport(preset);
+																	}}
+																	title="导出"
+																>
+																	<DownloadIcon className="h-3.5 w-3.5" />
+																</Button>
+																<Button
+																	variant="ghost"
+																	size="icon"
+																	className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
+																	onClick={(e) => {
+																		e.stopPropagation();
+																		setPresetToDelete(preset);
+																	}}
+																	title="删除"
+																>
+																	<TrashIcon className="h-3.5 w-3.5" />
+																</Button>
+															</div>
+														</button>
 													</div>
-												</div>
-
-												{/* 操作按钮区 */}
-												<div className="flex flex-col gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-all duration-200">
-													<Button
-														variant="ghost"
-														size="icon-sm"
-														className="hover:bg-primary/10 hover:text-primary rounded-lg"
-														onClick={(e) => {
-															e.stopPropagation();
-															onEdit(preset);
-														}}
-														title="编辑"
-													>
-														<PencilIcon className="size-4" />
-													</Button>
-													<Button
-														variant="ghost"
-														size="icon-sm"
-														className="hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg"
-														onClick={(e) => {
-															e.stopPropagation();
-															onExport(preset);
-														}}
-														title="导出"
-													>
-														<DownloadIcon className="size-4" />
-													</Button>
-													<Button
-														variant="ghost"
-														size="icon-sm"
-														className="hover:bg-destructive/10 hover:text-destructive rounded-lg"
-														onClick={(e) => {
-															e.stopPropagation();
-															setPresetToDelete(preset);
-														}}
-														title="删除"
-													>
-														<TrashIcon className="size-4" />
-													</Button>
-												</div>
-											</div>
+												);
+											})}
 										</div>
-									</Card>
-								))}
-							</div>
+									</AccordionContent>
+								</AccordionItem>
+							))}
+						</Accordion>
+					) : (
+						<div className="p-12 text-center text-muted-foreground border border-dashed rounded-lg">
+							<FileVideo className="size-12 mx-auto mb-4 opacity-20" />
+							<p className="text-sm font-medium">
+								{presets.length === 0
+									? "暂无命令预设"
+									: "没有符合筛选条件的命令"}
+							</p>
+							<p className="text-xs mt-1">
+								{presets.length === 0
+									? '点击"新建命令"创建第一个预设'
+									: "尝试选择其他分类或修改搜索关键词"}
+							</p>
 						</div>
-					))}
-
-					{filteredPresets.length === 0 && presets.length > 0 && (
-						<Card className="p-12 border-dashed">
-							<div className="text-center text-muted-foreground">
-								<FileIcon className="size-12 mx-auto mb-4 opacity-20" />
-								<p className="text-sm font-medium">没有符合筛选条件的命令</p>
-								<p className="text-xs mt-1">尝试选择其他分类</p>
-							</div>
-						</Card>
-					)}
-
-					{presets.length === 0 && (
-						<Card className="p-12 border-dashed">
-							<div className="text-center text-muted-foreground">
-								<FileIcon className="size-12 mx-auto mb-4 opacity-20" />
-								<p className="text-sm font-medium">暂无命令预设</p>
-								<p className="text-xs mt-1">点击"新建命令"创建第一个预设</p>
-							</div>
-						</Card>
 					)}
 				</div>
 			</ScrollArea>

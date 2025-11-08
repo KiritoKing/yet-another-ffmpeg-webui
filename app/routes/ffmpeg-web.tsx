@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { CommandPanel } from "../components/CommandPanel";
 import { ExecutionPanel } from "../components/ExecutionPanel";
 import {
@@ -51,7 +51,14 @@ export default function FFmpegWeb() {
 		setUseMultiThread,
 	} = useFFmpegWebStore();
 
-	const { presets } = useCommandStore();
+	const {
+		presets,
+		categoryOrder,
+		reorderPresets,
+		reorderCategories,
+		batchDelete,
+		updatePreset: updatePresetInStore,
+	} = useCommandStore();
 
 	// 业务逻辑 Hook
 	const {
@@ -211,9 +218,9 @@ export default function FFmpegWeb() {
 						<div className="lg:col-span-1">
 							<CommandPanel
 								presets={presets}
+								categoryOrder={categoryOrder}
 								selectedId={selectedPreset?.id}
 								selectedCategories={selectedCategories}
-								onCategoriesChange={setSelectedCategories}
 								onSelect={setSelectedPreset}
 								onEdit={(preset) => {
 									setEditingPreset(preset);
@@ -221,9 +228,14 @@ export default function FFmpegWeb() {
 								}}
 								onDelete={(preset) => deletePreset(preset.id)}
 								onExport={handleExportPreset}
+								onReorder={reorderPresets}
+								onReorderCategories={reorderCategories}
+								onUpdateCategory={(id, category) =>
+									updatePresetInStore(id, { category })
+								}
+								onBatchDelete={batchDelete}
 							/>
-						</div>
-
+						</div>{" "}
 						{/* 右侧：执行面板（整合了队列和历史） */}
 						<div className="lg:col-span-2">
 							<ExecutionPanel

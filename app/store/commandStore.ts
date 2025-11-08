@@ -6,6 +6,7 @@ import { parseCLICommand } from "../utils";
 
 interface CommandStore {
 	presets: CommandPreset[];
+	categoryOrder: string[];
 	addPreset: (
 		preset: Omit<CommandPreset, "id" | "createdAt" | "updatedAt">,
 	) => void;
@@ -16,6 +17,11 @@ interface CommandStore {
 	exportPresets: () => CommandPreset[];
 	clearPresets: () => void;
 	resetToDefaults: () => void;
+	// 批量操作
+	reorderPresets: (presets: CommandPreset[]) => void;
+	reorderCategories: (categories: string[]) => void;
+	batchDelete: (ids: string[]) => void;
+	batchUpdateCategory: (ids: string[], category: string) => void;
 }
 
 // 辅助函数：创建标准的单输入文件字段
@@ -48,7 +54,7 @@ const defaultPresets: Omit<CommandPreset, "id" | "createdAt" | "updatedAt">[] =
 		{
 			name: "复制流（不重新编码）",
 			description: "快速复制视频和音频流，不进行重新编码，速度最快",
-			category: "基础",
+			category: "基础操作",
 			ffmpegArgs: ["-i", "{{input}}", "-c", "copy", "{{output}}"],
 			requiresReencode: false,
 			estimatedMemoryMB: 50,
@@ -86,7 +92,7 @@ const defaultPresets: Omit<CommandPreset, "id" | "createdAt" | "updatedAt">[] =
 		{
 			name: "提取音频为 MP3",
 			description: "从视频中提取音频轨道并转换为 MP3 格式",
-			category: "音频提取",
+			category: "音频处理",
 			ffmpegArgs: [
 				"-i",
 				"{{input}}",
@@ -104,7 +110,7 @@ const defaultPresets: Omit<CommandPreset, "id" | "createdAt" | "updatedAt">[] =
 		{
 			name: "调整分辨率（720p）",
 			description: "将视频缩放到 1280x720 分辨率",
-			category: "视频编辑",
+			category: "视频处理",
 			ffmpegArgs: [
 				"-i",
 				"{{input}}",
@@ -138,7 +144,7 @@ const defaultPresets: Omit<CommandPreset, "id" | "createdAt" | "updatedAt">[] =
 		{
 			name: "提取视频片段",
 			description: "从第 10 秒开始提取 5 秒的视频片段",
-			category: "视频编辑",
+			category: "视频处理",
 			ffmpegArgs: [
 				"-i",
 				"{{input}}",
@@ -174,7 +180,7 @@ const defaultPresets: Omit<CommandPreset, "id" | "createdAt" | "updatedAt">[] =
 		{
 			name: "压缩视频",
 			description: "使用 H.264 编码器压缩视频，CRF 值 28（值越大压缩越多）",
-			category: "视频编辑",
+			category: "视频处理",
 			ffmpegArgs: [
 				"-i",
 				"{{input}}",
@@ -195,7 +201,7 @@ const defaultPresets: Omit<CommandPreset, "id" | "createdAt" | "updatedAt">[] =
 		{
 			name: "合并视频",
 			description: "按顺序合并两个视频文件",
-			category: "视频编辑",
+			category: "视频处理",
 			ffmpegArgs: [
 				"-i",
 				"{{input1}}",
@@ -238,7 +244,7 @@ const defaultPresets: Omit<CommandPreset, "id" | "createdAt" | "updatedAt">[] =
 		{
 			name: "旋转视频",
 			description: "使用自定义角度或方向旋转视频（支持表单化配置）",
-			category: "视频编辑",
+			category: "视频处理",
 			ffmpegArgs: [
 				"-i",
 				"{{input}}",
@@ -272,7 +278,7 @@ const defaultPresets: Omit<CommandPreset, "id" | "createdAt" | "updatedAt">[] =
 		{
 			name: "视频缩放（自定义）",
 			description: "自定义视频分辨率、码率和质量参数",
-			category: "视频编辑",
+			category: "视频处理",
 			ffmpegArgs: [
 				"-i",
 				"{{input}}",
@@ -337,35 +343,158 @@ const defaultPresets: Omit<CommandPreset, "id" | "createdAt" | "updatedAt">[] =
 		},
 	];
 
+const normalizeCategory = (category?: string) => {
+	const value = (category ?? "").trim();
+	return value === "" ? "未分类" : value;
+};
+
+const mergeCategoryOrder = (
+	order: string[],
+	categories: string[],
+): string[] => {
+	const normalizedOrder = order.map(normalizeCategory);
+	const seen = new Set(normalizedOrder);
+	const next = [...normalizedOrder];
+	for (const raw of categories) {
+		const category = normalizeCategory(raw);
+		if (!seen.has(category)) {
+			next.push(category);
+			seen.add(category);
+		}
+	}
+	return next;
+};
+
+const pruneCategoryOrder = (
+	order: string[],
+	presets: CommandPreset[],
+): string[] => {
+	const inUse = new Set(
+		presets.map((preset) => normalizeCategory(preset.category)),
+	);
+	return order.map(normalizeCategory).filter((category) => inUse.has(category));
+};
+
+const computeCategoryOrderFromPresets = (
+	presets: CommandPreset[],
+	existingOrder: string[] = [],
+) => {
+	const normalizedExisting = existingOrder.map(normalizeCategory);
+	const seen = new Set<string>();
+	const next: string[] = [];
+	for (const category of normalizedExisting) {
+		if (!seen.has(category)) {
+			next.push(category);
+			seen.add(category);
+		}
+	}
+	for (const preset of presets) {
+		const category = normalizeCategory(preset.category);
+		if (!seen.has(category)) {
+			next.push(category);
+			seen.add(category);
+		}
+	}
+	return next;
+};
+
 export const useCommandStore = create<CommandStore>()(
 	persist(
 		(set, get) => ({
 			presets: [],
+			categoryOrder: [],
 
 			addPreset: (preset) => {
-				const newPreset: CommandPreset = {
+				const now = Date.now();
+				const normalizedPreset: CommandPreset = {
 					...preset,
-					id: `preset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-					createdAt: Date.now(),
-					updatedAt: Date.now(),
+					category: normalizeCategory(preset.category),
+					id: `preset_${now}_${Math.random().toString(36).substr(2, 9)}`,
+					createdAt: now,
+					updatedAt: now,
 				};
-				set((state) => ({
-					presets: [...state.presets, newPreset],
-				}));
+				set((state) => {
+					const nextPresets = [...state.presets, normalizedPreset];
+					const mergedOrder = mergeCategoryOrder(state.categoryOrder, [
+						normalizedPreset.category,
+					]);
+					return {
+						presets: nextPresets,
+						categoryOrder: pruneCategoryOrder(mergedOrder, nextPresets),
+					};
+				});
 			},
 
 			updatePreset: (id, updates) => {
-				set((state) => ({
-					presets: state.presets.map((p) =>
-						p.id === id ? { ...p, ...updates, updatedAt: Date.now() } : p,
-					),
-				}));
+				const now = Date.now();
+				set((state) => {
+					let updatedCategory: string | undefined;
+					const updatedPresets = state.presets.map((preset) => {
+						if (preset.id !== id) {
+							const normalized = normalizeCategory(preset.category);
+							return normalized === preset.category
+								? preset
+								: { ...preset, category: normalized };
+						}
+
+						const { category: categoryUpdate, ...restUpdates } = updates;
+						const currentCategory = normalizeCategory(preset.category);
+						const nextCategory =
+							categoryUpdate !== undefined
+								? normalizeCategory(categoryUpdate)
+								: currentCategory;
+
+						if (
+							categoryUpdate !== undefined &&
+							nextCategory !== currentCategory
+						) {
+							updatedCategory = nextCategory;
+						}
+
+						return {
+							...preset,
+							...restUpdates,
+							category: nextCategory,
+							updatedAt: now,
+						};
+					});
+
+					const normalizedPresets = updatedPresets.map((preset) =>
+						preset.category === normalizeCategory(preset.category)
+							? preset
+							: { ...preset, category: normalizeCategory(preset.category) },
+					);
+
+					const prunedOrder = pruneCategoryOrder(
+						state.categoryOrder,
+						normalizedPresets,
+					);
+
+					const finalOrder =
+						updatedCategory !== undefined
+							? pruneCategoryOrder(
+									mergeCategoryOrder(prunedOrder, [updatedCategory]),
+									normalizedPresets,
+								)
+							: prunedOrder;
+
+					return {
+						presets: normalizedPresets,
+						categoryOrder: finalOrder,
+					};
+				});
 			},
 
 			deletePreset: (id) => {
-				set((state) => ({
-					presets: state.presets.filter((p) => p.id !== id),
-				}));
+				set((state) => {
+					const nextPresets = state.presets.filter(
+						(preset) => preset.id !== id,
+					);
+					return {
+						presets: nextPresets,
+						categoryOrder: pruneCategoryOrder(state.categoryOrder, nextPresets),
+					};
+				});
 			},
 
 			getPreset: (id) => {
@@ -377,7 +506,6 @@ export const useCommandStore = create<CommandStore>()(
 				const currentState = get();
 				const existingIds = new Set(currentState.presets.map((p) => p.id));
 
-				// 过滤掉重复的 ID，并为所有导入的预设生成新的 ID
 				const importedPresets = presets
 					.filter((p) => {
 						if (existingIds.has(p.id)) {
@@ -389,14 +517,22 @@ export const useCommandStore = create<CommandStore>()(
 					})
 					.map((p) => ({
 						...p,
+						category: normalizeCategory(p.category),
 						id: `preset_${now}_${Math.random().toString(36).substr(2, 9)}`,
 						createdAt: p.createdAt || now,
 						updatedAt: now,
 					}));
 
-				set((state) => ({
-					presets: [...state.presets, ...importedPresets],
-				}));
+				set((state) => {
+					const nextPresets = [...state.presets, ...importedPresets];
+					const mergedOrder = mergeCategoryOrder(state.categoryOrder, [
+						...importedPresets.map((preset) => preset.category),
+					]);
+					return {
+						presets: nextPresets,
+						categoryOrder: pruneCategoryOrder(mergedOrder, nextPresets),
+					};
+				});
 			},
 
 			exportPresets: () => {
@@ -404,18 +540,77 @@ export const useCommandStore = create<CommandStore>()(
 			},
 
 			clearPresets: () => {
-				set({ presets: [] });
+				set({ presets: [], categoryOrder: [] });
 			},
 
 			resetToDefaults: () => {
 				const now = Date.now();
 				const initialPresets = defaultPresets.map((preset, index) => ({
 					...preset,
+					category: normalizeCategory(preset.category),
 					id: `default_${now}_${index}`,
 					createdAt: now,
 					updatedAt: now,
 				}));
-				set({ presets: initialPresets });
+				set({
+					presets: initialPresets,
+					categoryOrder: computeCategoryOrderFromPresets(initialPresets),
+				});
+			},
+
+			// 批量操作
+			reorderPresets: (presets) => {
+				const normalizedPresets = presets.map((preset) => ({
+					...preset,
+					category: normalizeCategory(preset.category),
+				}));
+				set({
+					presets: normalizedPresets,
+					categoryOrder: computeCategoryOrderFromPresets(normalizedPresets),
+				});
+			},
+
+			reorderCategories: (categories) => {
+				set((state) => {
+					const normalizedInput = categories.map(normalizeCategory);
+					const merged = mergeCategoryOrder(normalizedInput, [
+						...state.presets.map((preset) =>
+							normalizeCategory(preset.category),
+						),
+					]);
+					return {
+						categoryOrder: pruneCategoryOrder(merged, state.presets),
+					};
+				});
+			},
+
+			batchDelete: (ids) => {
+				set((state) => {
+					const nextPresets = state.presets.filter((p) => !ids.includes(p.id));
+					return {
+						presets: nextPresets,
+						categoryOrder: pruneCategoryOrder(state.categoryOrder, nextPresets),
+					};
+				});
+			},
+
+			batchUpdateCategory: (ids, category) => {
+				const now = Date.now();
+				const normalizedCategory = normalizeCategory(category);
+				set((state) => {
+					const nextPresets = state.presets.map((preset) =>
+						ids.includes(preset.id)
+							? { ...preset, category: normalizedCategory, updatedAt: now }
+							: preset,
+					);
+					const merged = mergeCategoryOrder(state.categoryOrder, [
+						normalizedCategory,
+					]);
+					return {
+						presets: nextPresets,
+						categoryOrder: pruneCategoryOrder(merged, nextPresets),
+					};
+				});
 			},
 		}),
 		{
@@ -424,7 +619,10 @@ export const useCommandStore = create<CommandStore>()(
 			migrate: (persistedState: unknown) => {
 				if (!persistedState || typeof persistedState !== "object")
 					return persistedState as unknown;
-				const ps = persistedState as { presets?: unknown[] };
+				const ps = persistedState as {
+					presets?: unknown[];
+					categoryOrder?: unknown[];
+				};
 				if (!ps.presets || !Array.isArray(ps.presets))
 					return persistedState as unknown;
 				const migrated = ps.presets.map((raw) => {
@@ -436,7 +634,6 @@ export const useCommandStore = create<CommandStore>()(
 						(f) => f.type === "file-input" || f.type === "file-output",
 					);
 					if (hasFileFields) {
-						// 移除 legacy 字段
 						const { inputFiles: _i, outputFileName: _o, ...rest } = preset;
 						return rest;
 					}
@@ -455,19 +652,64 @@ export const useCommandStore = create<CommandStore>()(
 						return rest;
 					}
 				});
-				return { ...ps, presets: migrated };
+
+				const normalizedPresets = migrated.map((raw) => {
+					const presetRecord = raw as Record<string, unknown>;
+					const rawCategory =
+						typeof presetRecord["category"] === "string"
+							? (presetRecord["category"] as string)
+							: undefined;
+					return {
+						...(presetRecord as unknown as CommandPreset),
+						category: normalizeCategory(rawCategory),
+					};
+				});
+
+				const previousOrder = Array.isArray(ps.categoryOrder)
+					? ps.categoryOrder.filter(
+							(value): value is string => typeof value === "string",
+						)
+					: [];
+
+				return {
+					...ps,
+					presets: normalizedPresets,
+					categoryOrder: computeCategoryOrderFromPresets(
+						normalizedPresets as CommandPreset[],
+						previousOrder,
+					),
+				};
 			},
 			onRehydrateStorage: () => (state) => {
-				// 如果没有预设命令，直接初始化默认预设（不触发 actions）
-				if (state && state.presets.length === 0) {
+				if (!state) return;
+
+				const normalizedPresets = state.presets.map((preset) => ({
+					...preset,
+					category: normalizeCategory(preset.category),
+				}));
+				state.presets = normalizedPresets;
+				const existingOrder = Array.isArray(state.categoryOrder)
+					? state.categoryOrder
+					: [];
+				state.categoryOrder = computeCategoryOrderFromPresets(
+					normalizedPresets,
+					existingOrder,
+				);
+
+				if (state.presets.length === 0) {
 					const now = Date.now();
 					const initialPresets = defaultPresets.map((preset, index) => ({
 						...preset,
+						category: normalizeCategory(preset.category),
 						id: `default_${now}_${index}`,
 						createdAt: now,
 						updatedAt: now,
 					}));
 					state.presets = initialPresets;
+					state.categoryOrder = computeCategoryOrderFromPresets(
+						initialPresets,
+						state.categoryOrder,
+					);
 				}
 			},
 		},

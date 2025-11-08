@@ -12,6 +12,16 @@ export default defineConfig({
 		headers: {
 			"Cross-Origin-Opener-Policy": "same-origin",
 			"Cross-Origin-Embedder-Policy": "require-corp",
+			"Cross-Origin-Resource-Policy": "cross-origin",
+		},
+		// 确保中间件正确应用 headers
+		middlewareMode: false,
+	},
+	preview: {
+		headers: {
+			"Cross-Origin-Opener-Policy": "same-origin",
+			"Cross-Origin-Embedder-Policy": "require-corp",
+			"Cross-Origin-Resource-Policy": "cross-origin",
 		},
 	},
 });

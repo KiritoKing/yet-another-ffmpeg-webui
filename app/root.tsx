@@ -11,11 +11,8 @@ import type { Route } from "./+types/root";
 import { Toaster } from "./components/ui/sonner";
 import "./app.css";
 
-// 添加 SharedArrayBuffer 所需的安全头
-export const headers: Route.HeadersFunction = () => ({
-	"Cross-Origin-Opener-Policy": "same-origin",
-	"Cross-Origin-Embedder-Policy": "require-corp",
-});
+// 在 CSR 模式下，Vercel 配置中的 headers 会自动添加必要的 HTTP 头
+// 这里不需要额外的配置，因为 vercel.json 已经包含了所需的头
 
 export const links: Route.LinksFunction = () => [
 	{ rel: "preconnect", href: "https://fonts.googleapis.com" },
