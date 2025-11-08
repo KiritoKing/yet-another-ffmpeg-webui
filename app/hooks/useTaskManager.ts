@@ -51,6 +51,7 @@ export function useTaskManager(
 		setTaskResult,
 		getTaskResult,
 		clearTaskResult,
+		clearAllTaskResults,
 		setProcessingQueue,
 	} = useTaskStore();
 
@@ -458,5 +459,6 @@ export function useTaskManager(
 		clearQueue,
 		abortCurrentTask,
 		getTaskResult,
+		clearAllTaskResults,
 	};
 }

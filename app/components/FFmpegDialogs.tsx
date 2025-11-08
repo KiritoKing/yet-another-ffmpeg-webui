@@ -236,3 +236,102 @@ export function ResetConfirmDialog({
 		</AlertDialog>
 	);
 }
+
+/**
+ * 清空队列确认对话框
+ */
+interface ClearQueueConfirmDialogProps {
+	open: boolean;
+	queueCount: number;
+	executingCount: number;
+	completedCount: number;
+	hasResults: boolean;
+	completedTasks: Array<{ outputFileName: string }>;
+	onOpenChange: (open: boolean) => void;
+	onConfirm: () => void;
+	onCancel: () => void;
+}
+
+export function ClearQueueConfirmDialog({
+	open,
+	queueCount,
+	executingCount,
+	completedCount,
+	hasResults,
+	completedTasks,
+	onOpenChange,
+	onConfirm,
+	onCancel,
+}: ClearQueueConfirmDialogProps) {
+	return (
+		<AlertDialog open={open} onOpenChange={onOpenChange}>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>切换命令后需要清空任务队列</AlertDialogTitle>
+					<AlertDialogDescription asChild>
+						<div className="space-y-3">
+							<p>
+								您已切换到新的命令，当前任务队列需要清空。以下内容将被删除：
+							</p>
+
+							{queueCount > 0 && (
+								<div className="text-sm">
+									• 等待队列中的{" "}
+									<span className="font-semibold">{queueCount}</span> 个任务
+								</div>
+							)}
+
+							{executingCount > 0 && (
+								<div className="text-sm text-yellow-600 dark:text-yellow-400">
+									• 正在执行的{" "}
+									<span className="font-semibold">{executingCount}</span>{" "}
+									个任务（将被中止）
+								</div>
+							)}
+
+							{completedCount > 0 && hasResults && (
+								<div className="space-y-2">
+									<div className="text-sm text-destructive">
+										• 已完成的{" "}
+										<span className="font-semibold">{completedCount}</span>{" "}
+										个任务结果将被清空
+									</div>
+									<div className="bg-muted p-3 rounded-md max-h-32 overflow-y-auto">
+										<p className="text-xs font-semibold mb-1">任务列表：</p>
+										<ul className="text-xs space-y-1">
+											{completedTasks.slice(0, 5).map((task) => (
+												<li
+													key={task.outputFileName}
+													className="text-muted-foreground"
+												>
+													• {task.outputFileName}
+												</li>
+											))}
+											{completedTasks.length > 5 && (
+												<li className="text-muted-foreground">
+													...还有 {completedTasks.length - 5} 个任务
+												</li>
+											)}
+										</ul>
+									</div>
+									<p className="text-xs text-destructive font-medium">
+										⚠️ 请确保已下载需要保存的文件
+									</p>
+								</div>
+							)}
+						</div>
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel onClick={onCancel}>取消切换</AlertDialogCancel>
+					<AlertDialogAction
+						onClick={onConfirm}
+						className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+					>
+						确认清空并继续
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
