@@ -45,7 +45,6 @@ interface FFmpegWebState {
 	setShowInitDialog: (show: boolean) => void;
 	setSavedMode: (mode: "multi-thread" | "single-thread" | null) => void;
 
-	setProcessing: (processing: boolean) => void;
 	setProgress: (progress: number) => void;
 	setCurrentStep: (currentStep: string) => void;
 
@@ -70,7 +69,6 @@ interface FFmpegWebState {
 	) => void;
 
 	// 重置方法
-	resetExecutionState: () => void;
 	resetAll: () => void;
 }
 
@@ -111,7 +109,6 @@ export const useFFmpegWebStore = create<FFmpegWebState>()(
 			setShowInitDialog: (show) => set({ showInitDialog: show }),
 			setSavedMode: (mode) => set({ savedMode: mode }),
 
-			setProcessing: (processing) => set({ processing }),
 			setProgress: (progress) => set({ progress }),
 			setCurrentStep: (currentStep) => set({ currentStep }),
 
@@ -133,15 +130,6 @@ export const useFFmpegWebStore = create<FFmpegWebState>()(
 				set((state) => ({
 					formValues: { ...state.formValues, [key]: value },
 				})),
-
-			// 重置执行状态
-			resetExecutionState: () =>
-				set({
-					processing: false,
-					progress: 0,
-					currentStep: "就绪",
-					outputUrl: "",
-				}),
 
 			// 重置所有状态
 			resetAll: () =>
