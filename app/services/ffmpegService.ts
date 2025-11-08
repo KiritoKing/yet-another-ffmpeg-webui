@@ -1,5 +1,6 @@
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
+import type { CDNProvider } from "../store/cdn/types";
 
 export type FFmpegMode = "single" | "multi";
 
@@ -7,6 +8,7 @@ export interface FFmpegConfig {
 	mode: FFmpegMode;
 	onLog?: (message: string) => void;
 	onProgress?: (progress: number, time: number) => void;
+	cdnProvider?: CDNProvider; // 可选的 CDN 配置
 }
 
 export interface ConvertOptions {
@@ -60,9 +62,8 @@ export class FFmpegService {
 			);
 		}
 
-		const corePackage =
-			this.config.mode === "multi" ? "@ffmpeg/core-mt" : "@ffmpeg/core";
-		const baseURL = `https://cdn.jsdelivr.net/npm/${corePackage}@0.12.6/dist/esm`;
+		// 使用 CDN 配置或默认 jsDelivr
+		const baseURL = this.getBaseURL();
 
 		this.ffmpeg = new FFmpeg();
 
@@ -102,6 +103,32 @@ export class FFmpegService {
 
 		await this.ffmpeg.load(loadConfig);
 		this.loaded = true;
+	}
+
+	/**
+	 * 获取 FFmpeg 资源的基础 URL
+	 */
+	private getBaseURL(): string {
+		const corePackage =
+			this.config.mode === "multi" ? "@ffmpeg/core-mt" : "@ffmpeg/core";
+
+		// 如果配置了 CDN provider，使用它
+		if (this.config.cdnProvider) {
+			const provider = this.config.cdnProvider;
+
+			// 特殊处理本地资源
+			if (provider.id === "local") {
+				return this.config.mode === "multi"
+					? `${provider.baseUrl}/core-mt@0.12.6/dist/esm`
+					: `${provider.baseUrl}/core@0.12.6/dist/esm`;
+			}
+
+			// 使用 CDN provider 的 baseUrl
+			return `${provider.baseUrl}/${corePackage}@0.12.6/dist/esm`;
+		}
+
+		// 默认使用 jsDelivr（国内友好）
+		return `https://cdn.jsdelivr.net/npm/${corePackage}@0.12.6/dist/esm`;
 	}
 
 	/**

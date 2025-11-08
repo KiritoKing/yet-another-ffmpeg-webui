@@ -1,4 +1,7 @@
+import { Activity } from "lucide-react";
+import { useState } from "react";
 import type { CommandPreset } from "../types/command";
+import { CDNSelector } from "./CDNSelector";
 import { CommandEditor } from "./CommandEditor";
 import {
 	AlertDialog,
@@ -139,59 +142,88 @@ export function SettingsDialog({
 	onResetCommands,
 	onClose,
 }: SettingsDialogProps) {
+	const [showCDNSelector, setShowCDNSelector] = useState(false);
+
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-md">
-				<DialogHeader>
-					<DialogTitle>设置</DialogTitle>
-					<DialogDescription>管理应用程序设置和数据</DialogDescription>
-				</DialogHeader>
-				<div className="space-y-6 py-4">
-					{/* 重置命令预设 */}
-					<div className="space-y-3">
-						<div>
-							<h3 className="text-sm font-medium mb-1">重置命令预设</h3>
-							<p className="text-xs text-muted-foreground">
-								将所有命令预设恢复到初始状态，这将删除所有自定义和导入的命令
-							</p>
+		<>
+			<Dialog open={open} onOpenChange={onOpenChange}>
+				<DialogContent className="max-w-md">
+					<DialogHeader>
+						<DialogTitle>设置</DialogTitle>
+						<DialogDescription>管理应用程序设置和数据</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-6 py-4">
+						{/* CDN 配置 */}
+						<div className="space-y-3">
+							<div>
+								<h3 className="text-sm font-medium mb-1 flex items-center gap-2">
+									<Activity className="w-4 h-4" />
+									CDN 配置
+								</h3>
+								<p className="text-xs text-muted-foreground">
+									配置 FFmpeg 资源加载源，优化国内访问速度
+								</p>
+							</div>
+							<Button
+								variant="outline"
+								onClick={() => setShowCDNSelector(true)}
+								className="w-full"
+							>
+								打开 CDN 配置
+							</Button>
 						</div>
-						<Button
-							variant="destructive"
-							onClick={onResetCommands}
-							className="w-full"
-						>
-							重置到初始状态
+
+						<Separator />
+
+						{/* 重置命令预设 */}
+						<div className="space-y-3">
+							<div>
+								<h3 className="text-sm font-medium mb-1">重置命令预设</h3>
+								<p className="text-xs text-muted-foreground">
+									将所有命令预设恢复到初始状态，这将删除所有自定义和导入的命令
+								</p>
+							</div>
+							<Button
+								variant="destructive"
+								onClick={onResetCommands}
+								className="w-full"
+							>
+								重置到初始状态
+							</Button>
+						</div>
+
+						<Separator />
+
+						{/* 命令统计 */}
+						<div className="space-y-2">
+							<h3 className="text-sm font-medium">统计信息</h3>
+							<div className="grid grid-cols-2 gap-3 text-sm">
+								<div className="bg-muted rounded-lg p-3">
+									<div className="text-muted-foreground text-xs mb-1">
+										命令总数
+									</div>
+									<div className="text-2xl font-bold">{presetsCount}</div>
+								</div>
+								<div className="bg-muted rounded-lg p-3">
+									<div className="text-muted-foreground text-xs mb-1">
+										分类数量
+									</div>
+									<div className="text-2xl font-bold">{categoriesCount}</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button variant="outline" onClick={onClose}>
+							关闭
 						</Button>
-					</div>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
-					<Separator />
-
-					{/* 命令统计 */}
-					<div className="space-y-2">
-						<h3 className="text-sm font-medium">统计信息</h3>
-						<div className="grid grid-cols-2 gap-3 text-sm">
-							<div className="bg-muted rounded-lg p-3">
-								<div className="text-muted-foreground text-xs mb-1">
-									命令总数
-								</div>
-								<div className="text-2xl font-bold">{presetsCount}</div>
-							</div>
-							<div className="bg-muted rounded-lg p-3">
-								<div className="text-muted-foreground text-xs mb-1">
-									分类数量
-								</div>
-								<div className="text-2xl font-bold">{categoriesCount}</div>
-							</div>
-						</div>
-					</div>
-				</div>
-				<DialogFooter>
-					<Button variant="outline" onClick={onClose}>
-						关闭
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+			{/* CDN Selector Dialog */}
+			<CDNSelector open={showCDNSelector} onOpenChange={setShowCDNSelector} />
+		</>
 	);
 }
 

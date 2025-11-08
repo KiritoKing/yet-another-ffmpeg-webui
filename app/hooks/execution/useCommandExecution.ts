@@ -1,5 +1,4 @@
 import { useFFmpegWebStore } from "../../store/ffmpegWeb";
-import { useTaskStore } from "../../store/task";
 
 /**
  * Hook for command execution state and controls

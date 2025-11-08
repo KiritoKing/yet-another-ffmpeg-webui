@@ -16,7 +16,6 @@ import {
 import { useState } from "react";
 import { useCommandExecution } from "../hooks/execution/useCommandExecution";
 import { useQueueOperations } from "../hooks/execution/useQueueOperations";
-import type { Task } from "../types/task";
 import {
 	extractNonFileValues,
 	getFileInputFields,
