@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { type FFmpegMode, FFmpegService } from "../services/ffmpegService";
-import { useCommandStore } from "../store/commandStore";
-import { useFFmpegWebStore } from "../store/ffmpegWebStore";
-import { useLogStore } from "../store/logStore";
+import { useCommandStore } from "../store/command";
+import { useFFmpegWebStore } from "../store/ffmpegWeb";
+import { useLogStore } from "../store/log";
 import type { CommandPreset } from "../types/command";
 import {
 	downloadJSON,

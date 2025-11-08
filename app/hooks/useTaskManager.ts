@@ -3,8 +3,8 @@ import { toast } from "sonner";
 import { FFmpegWorkerPool, SingleFFmpegProvider } from "../services/ffmpegPool";
 import type { FFmpegService } from "../services/ffmpegService";
 import { QueueProcessor } from "../services/queueProcessor";
-import { useLogStore } from "../store/logStore";
-import { useTaskStore } from "../store/taskStore";
+import { useLogStore } from "../store/log";
+import { useTaskStore } from "../store/task";
 import type { CommandPreset } from "../types/command";
 import type { Task, TaskStatus } from "../types/task";
 import {

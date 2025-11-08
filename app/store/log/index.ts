@@ -1,26 +1,15 @@
 import { create } from "zustand";
-import type { LogEntry } from "../types/log";
+import type { LogStore } from "./types";
 
-interface LogStore {
-	logs: LogEntry[];
-	logIdCounter: number;
-	addLog: (
-		message: string,
-		type?: LogEntry["type"],
-		instanceId?: string,
-	) => void;
-	clearLogs: () => void;
-}
-
+/**
+ * Log Store
+ * 管理应用程序日志
+ */
 export const useLogStore = create<LogStore>((set) => ({
 	logs: [],
 	logIdCounter: 0,
 
-	addLog: (
-		message: string,
-		type: LogEntry["type"] = "info",
-		instanceId?: string,
-	) => {
+	addLog: (message, type = "info", instanceId) => {
 		set((state) => ({
 			logs: [
 				...state.logs,

@@ -11,8 +11,8 @@ import { FFmpegToolbar } from "../components/FFmpegToolbar";
 import { InitializationDialog } from "../components/InitializationDialog";
 import { Card } from "../components/ui/card";
 import { useFFmpegWeb } from "../hooks/useFFmpegWeb";
-import { useCommandStore } from "../store/commandStore";
-import { useFFmpegWebStore } from "../store/ffmpegWebStore";
+import { useCommandStore } from "../store/command";
+import { useFFmpegWebStore } from "../store/ffmpegWeb";
 import type { CommandPreset } from "../types/command";
 
 /**
