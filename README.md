@@ -13,21 +13,33 @@
   - 从 CLI 解析命令
   - 批量操作支持
   - 持久化存储
-- 🚀 **高性能**: 支持单线程和多线程模式
+- � **任务队列系统**: 批量处理多个任务
+  - 并发控制（1-4 个任务同时执行）
+  - 实时进度追踪（每个任务和总体进度）
+  - 任务状态管理（等待/执行/完成）
+  - 结果预览（视频/音频/图片）
+  - 历史记录（IndexedDB 持久化）
+  - 文件名自动标准化
+- �🚀 **高性能**: 支持单线程和多线程模式
 - 🔒 **隐私保护**: 所有处理在浏览器本地完成，文件不上传
 - ⚡ **实时反馈**: 进度条和日志实时更新
 - 📦 **开箱即用**: 内置 10 个常用命令预设（含自定义表单示例）
 - 🎨 **现代 UI**: 基于 shadcn/ui 的专业设计系统，完全可访问
 - 🎯 **紧凑布局**: 优化的界面设计，信息密度高
 - 📝 **可视化配置**: 通过表单调整 FFmpeg 参数，无需手写命令
+- 🔍 **智能日志**: 搜索、筛选、自动滚动、手动清空
 
 ## 🎯 功能页面
 
 | 页面 | 路径 | 说明 |
 |------|------|------|
-| **FFmpeg Web** | `/ffmpeg-web` | 完整版界面，包含命令管理、导入导出等全部功能 |
-| 简单模式 | `/ffmpeg-demo` | 快速开始，简化的视频转换界面 |
-| 高级模式 | `/ffmpeg-advanced` | 自定义 FFmpeg 命令执行 |
+| **FFmpeg Web** | `/` 或 `/ffmpeg-web` | 完整版界面，包含命令管理、队列处理、历史记录等全部功能 |
+
+### 主要功能模块
+
+- **执行面板**: 选择命令、配置参数、执行任务
+- **队列面板**: 批量任务管理、并发控制、实时进度
+- **历史面板**: 查看历史任务、搜索筛选、重新执行
 
 ## 🚀 快速开始
 
@@ -59,19 +71,27 @@ pnpm build
 pnpm start
 ```
 
-## � 使用指南
+## 📖 使用指南
 
 ### 基本使用流程
 
 1. **访问首页**: 打开 `http://localhost:5173`
-2. **选择模式**: 
-   - 点击 "FFmpeg Web - 完整版" 进入主界面
-   - 或选择简单模式/高级模式
-3. **加载 FFmpeg**: 选择单线程或多线程模式，点击"加载 FFmpeg"
-4. **选择命令**: 从左侧列表选择预设命令
-5. **上传文件**: 为每个输入文件选择本地文件
-6. **执行命令**: 点击"执行命令"开始处理
-7. **查看结果**: 在输出预览区查看或下载结果
+2. **加载 FFmpeg**: 选择单线程或多线程模式，点击"加载 FFmpeg"
+3. **选择命令**: 从左侧列表选择预设命令
+4. **配置参数**: 上传文件、调整表单参数
+5. **执行任务**: 点击"执行命令"或"添加到队列"
+6. **查看结果**: 在输出预览区查看或下载结果
+
+### 批量处理流程
+
+1. **选择命令**: 在执行面板选择要批量处理的命令
+2. **上传文件**: 选择多个文件（会自动拆分为多个任务）
+3. **添加到队列**: 点击"添加到队列"按钮
+4. **切换到队列面板**: 查看等待中的任务
+5. **配置并发数**: 选择同时处理 1-4 个任务
+6. **开始处理**: 点击"开始处理"按钮
+7. **监控进度**: 实时查看各任务进度和总体进度
+8. **预览结果**: 完成后点击眼睛图标预览，或下载图标下载
 
 ### 命令管理
 
@@ -96,6 +116,7 @@ pnpm start
 - **类型系统**: TypeScript v5
 - **构建工具**: Vite v7
 - **包管理器**: pnpm
+- **Hooks 工具**: ahooks v3 (防抖、性能优化)
 
 ## 📁 项目结构
 
@@ -105,31 +126,49 @@ ffmpeg-easy/
 │   ├── components/          # 可复用组件（shadcn/ui）
 │   │   ├── CommandEditor.tsx
 │   │   ├── CommandList.tsx
+│   │   ├── QueueControlPanel.tsx   # 队列控制面板
+│   │   ├── TaskHistoryViewer.tsx   # 任务历史查看器
+│   │   ├── BatchFileUpload.tsx     # 批量文件上传
 │   │   ├── ProgressLogViewer.tsx
 │   │   ├── ui/             # shadcn/ui 组件库
 │   │   └── ...
 │   ├── lib/                # 工具库
 │   │   └── utils.ts        # cn() 等工具函数
+│   ├── hooks/              # 自定义 Hooks
+│   │   ├── useFFmpegWeb.ts  # FFmpeg Web 业务逻辑
+│   │   └── useTaskManager.ts # 任务队列管理
 │   ├── routes/              # 路由页面
-│   │   ├── ffmpeg-web.tsx   # 主界面
-│   │   ├── ffmpeg-demo.tsx
-│   │   └── ffmpeg-advanced.tsx
+│   │   ├── home.tsx         # 首页
+│   │   └── ffmpeg-web.tsx   # 主界面
 │   ├── services/            # 业务服务
-│   │   └── ffmpegService.ts
+│   │   ├── ffmpegService.ts    # FFmpeg 核心服务
+│   │   ├── queueProcessor.ts   # 队列处理器
+│   │   ├── taskDatabase.ts     # IndexedDB 持久化
+│   │   └── ffmpegPool.ts       # FFmpeg 实例池
 │   ├── store/               # 状态管理
 │   │   ├── commandStore.ts
-│   │   └── logStore.ts
+│   │   ├── taskStore.ts         # 任务队列状态
+│   │   ├── logStore.ts
+│   │   └── ffmpegWebStore.ts
 │   ├── types/               # 类型定义
 │   │   ├── command.ts
+│   │   ├── task.ts              # 任务类型定义
 │   │   └── log.ts
 │   └── utils/               # 工具函数
-│       └── commandUtils.ts
+│       ├── parsers.ts
+│       ├── validators.ts
+│       ├── templates.ts
+│       ├── fileHelpers.ts
+│       ├── errorHandling.ts     # 错误处理和文件名标准化
+│       └── index.ts
 ├── public/                  # 静态资源
 ├── .github/                # GitHub 配置
 │   └── prompts/           # AI 提示词
 ├── components.json         # shadcn/ui 配置
 ├── AGENTS.md               # AI 协作文档
 ├── API.md                  # API 文档
+├── CUSTOM_FORMS.md         # 自定义表单功能说明
+├── TASK_SYSTEM_v3.md       # 任务系统 v3 文档
 ├── FFMPEG_WEB.md           # FFmpeg Web 功能文档
 └── README.md               # 本文件
 ```
@@ -139,6 +178,7 @@ ffmpeg-easy/
 - [AGENTS.md](./AGENTS.md) - AI 协作开发指南
 - [API.md](./API.md) - FFmpegService API 参考
 - [CUSTOM_FORMS.md](./CUSTOM_FORMS.md) - 自定义表单功能完整说明
+- [TASK_SYSTEM_v3.md](./TASK_SYSTEM_v3.md) - 任务系统 v3 架构文档
 - [FFMPEG_WEB.md](./FFMPEG_WEB.md) - FFmpeg Web 完整功能说明
 
 ## 🎬 内置预设命令
@@ -231,6 +271,12 @@ WebAssembly 有内存限制，建议：
 - 处理小于 500MB 的文件
 - 使用 `-c copy` 模式避免重新编码
 - 使用较快的预设（如 `ultrafast`）
+
+### 任务中止与恢复
+
+- ✅ 支持中止正在执行的任务
+- ✅ 中止后自动重新加载 FFmpeg 实例
+- ✅ 重新提交任务无需手动重新加载
 
 ### 浏览器兼容性
 

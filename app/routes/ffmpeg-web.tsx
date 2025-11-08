@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CommandPanel } from "../components/CommandPanel";
 import { ExecutionPanel } from "../components/ExecutionPanel";
 import {
@@ -25,11 +25,8 @@ export default function FFmpegWeb() {
 		isClient,
 		loaded,
 		processing,
-		progress,
-		currentStep,
 		selectedPreset,
 		editingPreset,
-		outputUrl,
 		formValues,
 		selectedCategories,
 		showEditor,
@@ -62,19 +59,17 @@ export default function FFmpegWeb() {
 		useMultiThread,
 		loadFFmpeg,
 		executeCommand,
-		handleAbortTask,
 		handleReloadFFmpeg,
 		handleExportAll,
 		handleImportJSON,
 		handleExportPreset,
 		handleCLIImport,
-		handleDownload,
 		handleCopyCommand,
 		handleResetCommands,
 		addPreset,
 		updatePreset,
 		deletePreset,
-		computeDynamicOutputName,
+		taskManager,
 	} = useFFmpegWeb();
 
 	// 初始化分类筛选（全选）
@@ -229,22 +224,50 @@ export default function FFmpegWeb() {
 							/>
 						</div>
 
-						{/* 右侧：执行区域 */}
+						{/* 右侧：执行面板（整合了队列和历史） */}
 						<div className="lg:col-span-2">
 							<ExecutionPanel
+								// 命令相关
 								selectedPreset={selectedPreset}
 								formValues={formValues}
-								processing={processing}
-								progress={progress}
-								currentStep={currentStep}
-								outputUrl={outputUrl}
 								copiedCommand={copiedCommand}
 								onFormChange={setFormValues}
-								onExecute={executeCommand}
-								onAbort={handleAbortTask}
 								onCopyCommand={handleCopyCommand}
-								onDownload={handleDownload}
-								computeOutputName={computeDynamicOutputName}
+								// 执行控制
+								onExecute={executeCommand}
+								// 队列相关
+								queue={taskManager.queue}
+								executingTasks={taskManager.executingTasks}
+								completedTasks={taskManager.recentCompletedTasks}
+								isProcessingQueue={taskManager.isProcessingQueue}
+								batchSize={taskManager.queueConfig.batchSize}
+								initialQueueSize={taskManager.initialQueueSize}
+								onStartQueue={taskManager.startQueue}
+								onStopQueue={taskManager.stopQueue}
+								onClearQueue={taskManager.clearQueue}
+								onRemoveTask={taskManager.removeFromQueue}
+								onBatchSizeChange={(size: number) =>
+									taskManager.setQueueConfig({ batchSize: size })
+								}
+								getTaskResultUrl={(taskId: string) =>
+									taskManager.getTaskResult(taskId)
+								}
+								onDownloadResult={(taskId: string) => {
+									const blobUrl = taskManager.getTaskResult(taskId);
+									if (blobUrl) {
+										const task = taskManager.recentCompletedTasks.find(
+											(t) => t.id === taskId,
+										);
+										if (task) {
+											const a = document.createElement("a");
+											a.href = blobUrl;
+											a.download = task.outputFileName;
+											document.body.appendChild(a);
+											a.click();
+											document.body.removeChild(a);
+										}
+									}
+								}}
 							/>
 						</div>
 					</div>

@@ -17,9 +17,12 @@ import {
 	importPresetsFromJSON,
 	parseCLICommand,
 	replaceTemplateVariables,
+	sanitizeFilename,
+	standardizeAndUniquifyFilenames,
 	uploadJSON,
 	validateTemplateUsage,
 } from "../utils";
+import { useTaskManager } from "./useTaskManager";
 
 /**
  * FFmpeg Web 页面核心业务逻辑 Hook
@@ -51,7 +54,6 @@ export function useFFmpegWeb() {
 		setLoaded,
 		setLoading,
 		setUseMultiThread,
-		setProcessing,
 		setProgress,
 		setCurrentStep,
 		setSelectedPreset,
@@ -79,6 +81,9 @@ export function useFFmpegWeb() {
 		resetToDefaults,
 	} = useCommandStore();
 
+	// 初始化任务管理器
+	const taskManager = useTaskManager(ffmpegServiceRef);
+
 	// 初始化客户端标志
 	useEffect(() => {
 		setIsClient(true);
@@ -91,6 +96,15 @@ export function useFFmpegWeb() {
 			setFormValues(defaultValues);
 		}
 	}, [selectedPreset, setFormValues]);
+
+	// 当预设列表更新时，保持 selectedPreset 指向最新对象（避免编辑保存后仍引用旧对象）
+	useEffect(() => {
+		if (!selectedPreset) return;
+		const latest = presets.find((p) => p.id === selectedPreset.id);
+		if (latest && latest !== selectedPreset) {
+			setSelectedPreset(latest);
+		}
+	}, [presets, selectedPreset, setSelectedPreset]);
 
 	/**
 	 * 计算动态输出文件名
@@ -221,156 +235,119 @@ export function useFFmpegWeb() {
 			}
 		}
 
-		setProcessing(true);
-		setProgress(0);
-		taskStartTimeRef.current = 0;
-		lastProgressUpdateRef.current = Date.now();
-		setCurrentStep("准备执行...");
-		clearLogs();
+		// 批量文件场景：单一 file-input 且 multiple=true，并选择了多个文件 -> 拆分为多个队列任务
+		if (
+			fileInputFields.length === 1 &&
+			fileInputFields[0].multiple &&
+			Array.isArray(formValues[fileInputFields[0].name]) &&
+			(formValues[fileInputFields[0].name] as File[]).length > 1
+		) {
+			const inputField = fileInputFields[0];
+			const files = formValues[inputField.name] as File[];
+			addLog(
+				`检测到批量文件，共 ${files.length} 个，将拆分为 ${files.length} 个队列任务`,
+				"info",
+			);
 
-		// 启动进度停滞检测
-		progressCheckIntervalRef.current = setInterval(() => {
-			const now = Date.now();
-			const timeSinceLastUpdate = now - lastProgressUpdateRef.current;
+			// 预先标准化所有文件名
+			const standardized = standardizeAndUniquifyFilenames(files);
 
-			if (timeSinceLastUpdate > 30000) {
-				const message =
-					`⚠️ 任务进度已停滞 ${Math.floor(timeSinceLastUpdate / 1000)} 秒。可能原因：\n` +
-					`- VP9/H.265 等编码器处理大文件极慢\n` +
-					`- 建议使用"中止"按钮停止，并尝试:\n` +
-					`  • 使用更快的编码器（H.264）\n` +
-					`  • 降低分辨率或帧率\n` +
-					`  • 减小文件大小`;
-				addLog(message, "warning");
+			const tasks = files.map((file, index) => {
+				const std = standardized[index];
 
-				if (progressCheckIntervalRef.current) {
-					clearInterval(progressCheckIntervalRef.current);
-					progressCheckIntervalRef.current = null;
+				// 记录文件名标准化
+				if (std.warnings.length) {
+					addLog(
+						`[文件名标准化] ${std.original} -> ${std.finalName} (${std.warnings.join(", ")})`,
+						"warning",
+					);
+				} else if (std.original !== std.finalName) {
+					addLog(`[文件名标准化] ${std.original} -> ${std.finalName}`, "info");
 				}
-			}
-		}, 30000);
 
-		try {
-			addLog(`开始执行命令: ${selectedPreset.name}`, "info");
-			setCurrentStep("正在处理...");
+				const fv: Record<string, unknown> = {
+					...formValues,
+					[inputField.name]: file,
+				};
 
-			// 构造输入文件列表
-			const inputFilesList: Array<{ file: File; name: string }> = [];
-			if (fileInputFields.length > 0) {
-				for (const field of fileInputFields) {
-					const val = formValues[field.name];
-					if (!val) continue;
-					if (field.multiple && Array.isArray(val)) {
-						for (const f of val as File[]) {
-							inputFilesList.push({ file: f, name: f.name });
-						}
-					} else if (val instanceof File) {
-						inputFilesList.push({
-							file: val as File,
-							name: (val as File).name,
-						});
+				let args = selectedPreset.ffmpegArgs;
+				if (selectedPreset.formSchema?.length) {
+					const nonFileVals = extractNonFileValues(
+						fv as Record<string, string | number | boolean | File | File[]>,
+					);
+					args = replaceTemplateVariables(
+						selectedPreset.ffmpegArgs,
+						nonFileVals,
+					);
+				}
+
+				// 应用文件名映射到 args（将原始文件名替换为标准化文件名）
+				args = args.map((arg) => (arg === file.name ? std.finalName : arg));
+
+				const outName = computeDynamicOutputName(selectedPreset, fv);
+				const sanitizedOutName = sanitizeFilename(outName);
+
+				// 替换输出文件名
+				args = args.map((a) => {
+					if (a === "{{output}}" || a === outName) {
+						return sanitizedOutName;
 					}
-				}
-			}
+					return a;
+				});
 
-			// 替换模板变量
-			let finalArgs = selectedPreset.ffmpegArgs;
-			if (selectedPreset.formSchema && selectedPreset.formSchema.length > 0) {
-				const nonFileValues = extractNonFileValues(formValues);
-				finalArgs = replaceTemplateVariables(
-					selectedPreset.ffmpegArgs,
-					nonFileValues,
+				addLog(
+					`[任务 ${index + 1}] 最终命令: ffmpeg ${args.join(" ")}`,
+					"info",
 				);
-				addLog(`应用表单参数: ${JSON.stringify(nonFileValues)}`, "info");
-			}
 
-			const dynamicOutputName = computeDynamicOutputName(
-				selectedPreset,
-				formValues,
-			);
-
-			// 替换 {{output}} 变量
-			finalArgs = finalArgs.map((arg) =>
-				arg === "{{output}}" ? dynamicOutputName : arg,
-			);
-
-			addLog(`最终命令: ${finalArgs.join(" ")}`, "info");
-
-			const outputBlob = await service.executeCommand({
-				inputFiles: inputFilesList,
-				outputFileName: dynamicOutputName,
-				ffmpegArgs: finalArgs,
+				return taskManager.createTask(
+					selectedPreset,
+					fv,
+					args,
+					sanitizedOutName,
+				);
 			});
-
-			// 清理之前的 URL
-			if (outputUrl) {
-				URL.revokeObjectURL(outputUrl);
-			}
-
-			const url = URL.createObjectURL(outputBlob);
-			setOutputUrl(url);
-			setProgress(1);
-			setCurrentStep("执行成功！");
-			addLog("命令执行成功！🎉", "success");
-			toast.success("命令执行成功！🎉");
-		} catch (error) {
-			console.error("执行错误:", error);
-			const errorMessage =
-				error instanceof Error ? error.message : String(error);
-			addLog(`执行失败: ${errorMessage}`, "error");
-			toast.error(`执行失败: ${errorMessage}`);
-			setCurrentStep("执行失败");
-		} finally {
-			if (progressCheckIntervalRef.current) {
-				clearInterval(progressCheckIntervalRef.current);
-				progressCheckIntervalRef.current = null;
-			}
-			setProcessing(false);
-		}
-	};
-
-	/**
-	 * 中止任务
-	 */
-	const handleAbortTask = async () => {
-		const service = ffmpegServiceRef.current;
-
-		if (!service || !service.getIsExecuting()) {
-			toast.warning("当前没有正在执行的任务");
+			taskManager.addTasksToQueue(tasks);
+			toast.success(`已添加 ${tasks.length} 个任务到队列`);
 			return;
 		}
 
-		try {
-			addLog("用户请求中止任务...", "warning");
+		// 单文件场景：也提交到任务队列
+		addLog(`提交任务: ${selectedPreset.name}`, "info");
 
-			if (progressCheckIntervalRef.current) {
-				clearInterval(progressCheckIntervalRef.current);
-				progressCheckIntervalRef.current = null;
-			}
-
-			await service.abort();
-
-			ffmpegServiceRef.current = null;
-			setLoaded(false);
-			setProcessing(false);
-			setProgress(0);
-			setCurrentStep("任务已中止");
-
-			if (outputUrl) {
-				URL.revokeObjectURL(outputUrl);
-				setOutputUrl("");
-			}
-
-			addLog("任务已中止，请重新加载 FFmpeg", "warning");
-			toast.info("任务已中止，请重新加载 FFmpeg");
-		} catch (error) {
-			const errorMessage =
-				error instanceof Error ? error.message : String(error);
-			addLog(`中止任务失败: ${errorMessage}`, "error");
-			toast.error(`中止任务失败: ${errorMessage}`);
+		// 替换模板变量
+		let finalArgs = selectedPreset.ffmpegArgs;
+		if (selectedPreset.formSchema && selectedPreset.formSchema.length > 0) {
+			const nonFileValues = extractNonFileValues(formValues);
+			finalArgs = replaceTemplateVariables(
+				selectedPreset.ffmpegArgs,
+				nonFileValues,
+			);
+			addLog(`应用表单参数: ${JSON.stringify(nonFileValues)}`, "info");
 		}
-	};
 
+		const dynamicOutputName = computeDynamicOutputName(
+			selectedPreset,
+			formValues,
+		);
+
+		// 替换 {{output}} 变量
+		finalArgs = finalArgs.map((arg) =>
+			arg === "{{output}}" ? dynamicOutputName : arg,
+		);
+
+		addLog(`最终命令: ffmpeg ${finalArgs.join(" ")}`, "info");
+
+		// 创建并添加任务到队列
+		const task = taskManager.createTask(
+			selectedPreset,
+			formValues,
+			finalArgs,
+			dynamicOutputName,
+		);
+		taskManager.addTasksToQueue([task]);
+		toast.success("任务已添加到队列");
+	};
 	/**
 	 * 重新加载 FFmpeg
 	 */
@@ -516,20 +493,6 @@ export function useFFmpegWeb() {
 			toast.error(`CLI 解析失败: ${errorMsg}`);
 		}
 	};
-
-	/**
-	 * 下载文件
-	 */
-	const handleDownload = () => {
-		if (!outputUrl || !selectedPreset) return;
-		const a = document.createElement("a");
-		a.href = outputUrl;
-		const dynamicName = computeDynamicOutputName(selectedPreset, formValues);
-		a.download = dynamicName;
-		a.click();
-		toast.success("文件下载成功");
-	};
-
 	/**
 	 * 复制命令
 	 */
@@ -585,13 +548,11 @@ export function useFFmpegWeb() {
 		// Actions
 		loadFFmpeg,
 		executeCommand,
-		handleAbortTask,
 		handleReloadFFmpeg,
 		handleExportAll,
 		handleImportJSON,
 		handleExportPreset,
 		handleCLIImport,
-		handleDownload,
 		handleCopyCommand,
 		handleResetCommands,
 
@@ -602,5 +563,8 @@ export function useFFmpegWeb() {
 
 		// Utils
 		computeDynamicOutputName,
+
+		// Task Manager
+		taskManager,
 	};
 }

@@ -110,12 +110,26 @@ export function CommandList({
 													{/* 文件信息 */}
 													<div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2 border border-border/50">
 														<FileIcon className="size-3.5 shrink-0 text-primary/60" />
-														<span className="font-medium">
-															{preset.formSchema?.filter(
-																(f) => f.type === "file-input",
-															).length ?? 0}{" "}
-															个输入
-														</span>
+														{(() => {
+															const inputs =
+																preset.formSchema?.filter(
+																	(f) => f.type === "file-input",
+																) || [];
+															const multi = inputs.find((f) => f.multiple);
+															return (
+																<span className="font-medium flex items-center gap-1">
+																	{inputs.length} 个输入
+																	{multi && (
+																		<span
+																			className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary border border-primary/20"
+																			title="支持批量文件，将自动拆分为多个任务"
+																		>
+																			批量
+																		</span>
+																	)}
+																</span>
+															);
+														})()}
 														<Separator orientation="vertical" className="h-3" />
 														<span
 															className="truncate flex-1"

@@ -1,11 +1,2 @@
 #!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
-# Run lint-staged with Biome on staged files only
-echo "[pre-commit] Running Biome check on staged files..."
-pnpm exec lint-staged || {
-	echo "[pre-commit] Lint-staged failed. Aborting commit." >&2
-	exit 1
-}
-
-echo "[pre-commit] Biome passed. Proceeding with commit."
+pnpm lint:staged || exit 1

@@ -70,8 +70,8 @@ export function ModeSelect({
 						<TooltipTrigger asChild>
 							<InfoIcon className="size-4 text-muted-foreground cursor-help" />
 						</TooltipTrigger>
-						<TooltipContent side="right" className="max-w-xs">
-							<div className="space-y-2 text-sm">
+						<TooltipContent side="bottom" className="max-w-xs">
+							<div className="space-y-2 text-sm p-4">
 								<div>
 									<p className="font-semibold">⚡ 多线程模式</p>
 									<p className="text-xs text-muted-foreground mt-1">

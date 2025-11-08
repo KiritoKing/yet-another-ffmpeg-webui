@@ -9,10 +9,14 @@ import type { CommandPreset } from "~/types/command";
  * 验证命令预设的完整性和有效性
  * 返回错误信息数组，空数组表示验证通过
  */
-export function validatePreset(preset: Partial<CommandPreset>): string[] {
+export function validatePreset(
+	preset: Partial<CommandPreset>,
+	requireId = false,
+): string[] {
 	const errors: string[] = [];
 
-	if (!preset.id || preset.id.trim() === "") {
+	// 新建命令时可以不传 id，由外部逻辑生成；仅在 requireId=true 时强制校验
+	if (requireId && (!preset.id || preset.id.trim() === "")) {
 		errors.push("ID 不能为空");
 	}
 

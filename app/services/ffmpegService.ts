@@ -21,6 +21,7 @@ export interface ExecuteCommandOptions {
 	inputFiles: { file: File; name: string }[];
 	outputFileName: string;
 	ffmpegArgs: string[];
+	onProgress?: (progress: number, time: number) => void;
 }
 
 export class FFmpegService {
@@ -28,6 +29,7 @@ export class FFmpegService {
 	private config: FFmpegConfig;
 	private loaded = false;
 	private isExecuting = false;
+	private isAborting = false;
 
 	constructor(config: FFmpegConfig) {
 		this.config = config;
@@ -114,10 +116,17 @@ export class FFmpegService {
 			throw new Error("FFmpeg 正在执行任务，请等待完成或中止当前任务");
 		}
 
-		const { inputFiles, outputFileName, ffmpegArgs } = options;
+		const { inputFiles, outputFileName, ffmpegArgs, onProgress } = options;
 		const fileNames: string[] = [];
 
 		this.isExecuting = true;
+
+		// 如果提供了进度回调，临时设置它
+		if (onProgress && this.ffmpeg) {
+			this.ffmpeg.on("progress", ({ progress, time }) => {
+				onProgress(progress, time);
+			});
+		}
 
 		try {
 			// 写入所有输入文件
@@ -157,12 +166,26 @@ export class FFmpegService {
 
 			return new Blob([buffer], { type: mimeType });
 		} catch (error) {
+			// 检查是否是中止错误
+			const errorStr = error instanceof Error ? error.message : String(error);
+			const isTerminated =
+				this.isAborting ||
+				errorStr.includes("called FFmpeg.terminate()") ||
+				errorStr.includes("FFmpeg.terminate()");
+
+			if (isTerminated) {
+				this.config.onLog?.(`任务已被用户中止`);
+				this.isAborting = false;
+				throw new Error("TASK_ABORTED");
+			}
+
 			this.config.onLog?.(`命令执行失败: ${error}`);
 			// 尝试清理文件，但不抛出错误
 			await this.cleanupFiles([...fileNames, outputFileName]);
 			throw error;
 		} finally {
 			this.isExecuting = false;
+			this.isAborting = false;
 		}
 	}
 
@@ -295,6 +318,7 @@ export class FFmpegService {
 
 	/**
 	 * 中止当前正在执行的任务
+	 * 注意：会终止并重新加载 FFmpeg 实例以确保干净状态
 	 */
 	async abort(): Promise<void> {
 		if (!this.isExecuting) {
@@ -302,12 +326,41 @@ export class FFmpegService {
 			return;
 		}
 
+		this.config.onLog?.("正在中止当前任务...");
+		this.isAborting = true;
+
+		// 保存配置，因为 terminate 后需要重新加载
+		const savedMode = this.config.mode;
+		const savedOnLog = this.config.onLog;
+		const savedOnProgress = this.config.onProgress;
+
+		// 调用 terminate 强制结束 FFmpeg 进程
+		if (this.ffmpeg) {
+			this.ffmpeg.terminate();
+			this.ffmpeg = null;
+			this.loaded = false;
+			this.isExecuting = false;
+		}
+
+		// 立即重新加载，保持实例可用
 		try {
-			this.config.onLog?.("正在中止任务...");
-			await this.terminate();
-			this.config.onLog?.("任务已中止");
+			this.config.onLog?.("正在重新加载 FFmpeg...");
+
+			// 重置状态
+			this.config = {
+				mode: savedMode,
+				onLog: savedOnLog,
+				onProgress: savedOnProgress,
+			};
+			this.loaded = false;
+			this.isExecuting = false;
+			this.isAborting = false;
+
+			// 重新加载
+			await this.load();
+			this.config.onLog?.("FFmpeg 已重新加载，可继续使用");
 		} catch (error) {
-			console.error("中止任务失败:", error);
+			this.config.onLog?.(`重新加载失败: ${error}`);
 			throw error;
 		}
 	}

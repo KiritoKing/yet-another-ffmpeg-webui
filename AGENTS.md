@@ -29,48 +29,38 @@ ffmpeg-easy/
 │   │   ├── DynamicForm.tsx     # 动态表单组件（基于 JSON Schema）
 │   │   ├── ArgsEditor.tsx      # FFmpeg 参数编辑器
 │   │   ├── FormSchemaEditor.tsx # 表单字段配置编辑器
+│   │   ├── QueueControlPanel.tsx # 队列控制面板（批处理）
+│   │   ├── TaskHistoryViewer.tsx # 任务历史查看器
+│   │   ├── BatchFileUpload.tsx # 批量文件上传组件
 │   │   └── ui/            # shadcn/ui 组件库
-│   │       ├── button.tsx
-│   │       ├── card.tsx
-│   │       ├── input.tsx
-│   │       ├── select.tsx
-│   │       ├── dialog.tsx
-│   │       ├── alert-dialog.tsx
-│   │       ├── progress.tsx
-│   │       ├── badge.tsx
-│   │       ├── label.tsx
-│   │       ├── textarea.tsx
-│   │       ├── separator.tsx
-│   │       ├── collapsible.tsx
-│   │       ├── slider.tsx
-│   │       ├── scroll-area.tsx
-│   │       ├── radio-group.tsx
-│   │       ├── tooltip.tsx
-│   │       ├── form.tsx
-│   │       └── sonner.tsx
 │   ├── lib/               # 工具库
 │   │   └── utils.ts       # cn() 等工具函数
 │   ├── hooks/             # 自定义 Hooks
-│   │   └── useFFmpegWeb.ts # FFmpeg Web 业务逻辑 Hook
+│   │   ├── useFFmpegWeb.ts # FFmpeg Web 业务逻辑 Hook
+│   │   └── useTaskManager.ts # 任务队列管理 Hook
 │   ├── routes/            # 路由页面
-│   │   ├── home.tsx       # 首页
-│   │   ├── ffmpeg-web.tsx # FFmpeg Web 主界面（重构后）
-│   │   ├── ffmpeg-demo.tsx     # FFmpeg 简单演示页面
-│   │   └── ffmpeg-advanced.tsx # FFmpeg 高级自定义页面
+│   │   ├── home.tsx       # 首页（重定向到 ffmpeg-web）
+│   │   └── ffmpeg-web.tsx # FFmpeg Web 主界面（重构后）
 │   ├── services/          # 业务服务层
-│   │   └── ffmpegService.ts    # FFmpeg 核心服务封装
+│   │   ├── ffmpegService.ts    # FFmpeg 核心服务封装
+│   │   ├── ffmpegPool.ts       # FFmpeg 实例池（多线程）
+│   │   ├── queueProcessor.ts   # 队列处理器
+│   │   └── taskDatabase.ts     # IndexedDB 任务持久化
 │   ├── store/             # 全局状态管理（Zustand）
 │   │   ├── commandStore.ts # 命令预设状态管理（持久化）
 │   │   ├── logStore.ts    # 日志状态管理
+│   │   ├── taskStore.ts   # 任务队列状态管理
 │   │   └── ffmpegWebStore.ts # FFmpeg Web 页面状态管理（持久化模式偏好）
 │   ├── types/             # 类型定义
 │   │   ├── command.ts     # 命令预设类型定义
-│   │   └── log.ts         # 日志类型定义
+│   │   ├── log.ts         # 日志类型定义
+│   │   └── task.ts        # 任务类型定义
 │   ├── utils/             # 工具函数（模块化）
 │   │   ├── parsers.ts     # CLI 解析和导入导出
 │   │   ├── validators.ts  # 命令验证和文件大小检查
 │   │   ├── templates.ts   # 模板变量处理
 │   │   ├── fileHelpers.ts # 文件字段配置工具
+│   │   ├── errorHandling.ts # 错误处理和文件名标准化
 │   │   └── index.ts       # 统一导出
 │   └── welcome/           # 欢迎页面组件
 │       └── welcome.tsx
@@ -87,6 +77,7 @@ ffmpeg-easy/
 ├── AGENTS.md              # AI 协作开发文档
 ├── API.md                 # FFmpegService API 文档
 ├── CUSTOM_FORMS.md        # 自定义表单功能文档
+├── TASK_SYSTEM_v3.md      # 任务系统 v3 文档
 ├── FFMPEG_WEB.md          # FFmpeg Web 功能完整文档
 └── README.md              # 项目说明文档
 ```
@@ -289,6 +280,118 @@ docker run -p 3000:3000 ffmpeg-easy
 ---
 
 ## 更新日志
+
+### 2025-11-08 (v4.1)
+- **任务中止问题修复** 🔧
+  - **问题**: 中止任务后重新提交会报错 "FFmpeg 未加载"
+  - **根本原因**: `FFmpegService.abort()` 调用 `terminate()` 销毁实例，但未重新加载
+  - **解决方案**: 
+    - 将 `abort()` 改为异步方法
+    - 中止后立即重新加载 FFmpeg 实例
+    - 保证实例始终可用，避免"未加载"错误
+  - **修改文件**:
+    - `ffmpegService.ts`: `abort()` 方法重构（终止 + 重新加载）
+    - `queueProcessor.ts`: `stop()` 改为异步，等待所有中止完成
+    - `useTaskManager.ts`: `stopQueue()` 改为异步
+  - **测试场景**: 
+    - ✅ 提交任务 → 执行成功
+    - ✅ 中止任务 → FFmpeg 终止并重新加载
+    - ✅ 重新提交 → 使用已重新加载的实例，正常执行
+    - ✅ 多次中止/重新提交 → 每次都能正常工作
+
+- **日志系统增强** ✨
+  - 新增日志搜索功能（防抖 300ms）
+  - 可点击类型筛选（全部/错误/警告）
+  - 支持手动清空日志
+  - 支持复制所有日志
+  - 智能自动滚动：
+    - 监听滚动位置，检测用户是否在底部
+    - 仅当在底部时自动滚动到最新日志
+    - 手动滚动上去时停止自动滚动
+    - 有筛选条件时不自动滚动（避免干扰用户查看）
+  - 使用 `ahooks` 的 `useDebounceFn` 优化搜索性能
+  - 虚拟滚动渲染优化（48px 行高）
+
+- **UI/UX 优化** 🎨
+  - 移除全局进度条（任务队列中已有各任务进度）
+  - 精简 `ProgressLogViewer` 组件：
+    - 移除所有 props（progress, currentStep, isExecuting）
+    - 只保留日志展示功能
+    - 移除 Card 包装，使用更紧凑的布局
+  - 移除输出预览区域（结果在队列面板预览）
+  - 优化提示框位置（Tooltip 从 right 改为 bottom）
+
+- **代码清理** 🧹
+  - 删除 4 个未使用的组件文件（~200 行）:
+    - `FileUploader.tsx`
+    - `VideoPlayer.tsx`
+    - `InfoPanel.tsx`
+    - `LogViewer.tsx`
+  - 删除 `useFFmpegWeb.ts` 中的未使用方法（~70 行）:
+    - `handleAbortTask()` - 58 行
+    - `handleDownload()` - 11 行
+  - 清理 `ffmpegWebStore.ts`:
+    - 移除 `setProcessing` action
+    - 移除 `resetExecutionState()` action
+  - 简化 `ExecutionPanel`:
+    - 移除 progress/currentStep/processing/outputUrl props
+    - 移除 outputUrl 预览部分（67 行）
+  - 统一首页路由：直接重定向到 FFmpeg Web 主界面
+  - 删除测试路由文件
+
+- **新增依赖** 📦
+  - `ahooks@^3.9.6` - React Hooks 工具库（用于防抖）
+
+### 2025-11-08 (v4.0)
+- **任务队列系统完整实现** 🎉
+  - **核心功能**:
+    - 创建 `taskStore.ts` 任务队列状态管理（Zustand）
+    - 创建 `useTaskManager.ts` 任务管理 Hook
+    - 创建 `queueProcessor.ts` 队列处理器（支持并发控制）
+    - 创建 `taskDatabase.ts` IndexedDB 持久化存储
+    - 创建 `ffmpegPool.ts` FFmpeg 实例池（多线程支持）
+  - **UI 组件**:
+    - `QueueControlPanel`: 队列控制面板（等待/执行/完成三区域）
+    - `TaskHistoryViewer`: 任务历史查看器（支持搜索、筛选、分页）
+    - `BatchFileUpload`: 批量文件上传组件
+  - **文件名标准化系统**:
+    - 创建 `errorHandling.ts` 工具模块
+    - `sanitizeFilename()`: 移除中文、空格、特殊字符，标准化扩展名
+    - `standardizeAndUniquifyFilenames()`: 批量处理，自动去重（添加序号）
+    - `applyFilenameMappings()`: 更新 FFmpeg 参数中的文件名
+    - 实时日志记录文件名映射过程
+  - **批处理优化**:
+    - 任务状态管理：pending → running → completed/failed/aborted
+    - 支持并发执行（可配置并发数 1-4）
+    - `executingTasks` 实时追踪正在执行的任务
+    - `recentCompletedTasks` 保留最近 20 个完成任务
+    - `initialQueueSize` 用于正确计算总体进度
+  - **进度系统重构**:
+    - 扩展 `ExecuteCommandOptions` 添加 `onProgress` 回调
+    - FFmpegService 支持任务级进度回调
+    - QueueProcessor 转发进度到 `onTaskProgress`
+    - 实时更新正在执行任务的进度条
+    - 修复总体进度计算（基于初始队列大小）
+  - **结果预览系统**:
+    - Blob URL 内存管理（`taskResults` Map）
+    - 支持视频/音频/图片预览
+    - 弹窗式预览界面（Dialog 组件）
+    - 下载功能支持
+  - **错误处理增强**:
+    - `parseFFmpegError()`: 解析 FFmpeg 错误信息
+    - `formatErrorMessage()`: 格式化用户友好的错误消息
+    - 支持内存错误、编码器错误等特殊情况识别
+  - **Tab 布局集成**:
+    - 执行 | 队列 | 历史 三个标签页
+    - 独立的状态管理和 UI
+    - 统一的用户体验
+  - **修复的关键问题**:
+    1. ✅ 文件名双重标准化（时间戳不一致）→ 使用预准备的 `task.ffmpegArgs`
+    2. ✅ File 对象丢失（无法序列化）→ 添加 `task._files` 临时字段
+    3. ✅ 批量任务无进度显示 → 实现完整的进度回调链
+    4. ✅ 结果无法预览 → 添加 Blob URL 管理和预览对话框
+    5. ✅ 状态不更新 → 修复 `startTask()` 逻辑和回调顺序
+    6. ✅ 总体进度计算错误 → 使用 `initialQueueSize` 记录初始值
 
 ### 2025-11-09 (v3.2)
 - **工具函数模块化与 UX 优化**
