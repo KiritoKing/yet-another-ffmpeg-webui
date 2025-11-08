@@ -1,6 +1,12 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
+# 预提交：仅检查增量并格式化暂存文件
+echo "[husky] Running biome check (staged)"
+pnpm lint:staged || exit 1
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
 # Run lint-staged with Biome on staged files only
 echo "[pre-commit] Running Biome check on staged files..."
 pnpm exec lint-staged || {

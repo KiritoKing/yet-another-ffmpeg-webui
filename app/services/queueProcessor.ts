@@ -1,9 +1,6 @@
 import type { Task } from "../types/task";
-import {
-	detectUnsupportedOptions,
-	parseFFmpegError,
-	validateAndSanitizeFilenames,
-} from "../utils/errorHandling";
+import { detectUnsupportedOptions, parseFFmpegError } from "../utils";
+import type { FFmpegProvider } from "./ffmpegPool";
 import type { FFmpegService } from "./ffmpegService";
 
 export interface QueueProcessorConfig {
@@ -25,15 +22,28 @@ export interface QueueProcessorConfig {
  * 管理任务队列的执行，支持批处理
  */
 export class QueueProcessor {
-	private ffmpegService: FFmpegService;
+	private provider:
+		| FFmpegProvider
+		| {
+				acquire: () => Promise<FFmpegService>;
+				release: (svc: FFmpegService) => void;
+		  };
 	private config: QueueProcessorConfig;
 	private queue: Task[] = [];
 	private executingTasks: Set<string> = new Set();
 	private isProcessing = false;
 	private shouldStop = false;
 
-	constructor(ffmpegService: FFmpegService, config: QueueProcessorConfig) {
-		this.ffmpegService = ffmpegService;
+	constructor(
+		provider:
+			| FFmpegProvider
+			| {
+					acquire: () => Promise<FFmpegService>;
+					release: (svc: FFmpegService) => void;
+			  },
+		config: QueueProcessorConfig,
+	) {
+		this.provider = provider;
 		this.config = config;
 	}
 
@@ -125,6 +135,7 @@ export class QueueProcessor {
 	private async executeTask(task: Task): Promise<void> {
 		this.executingTasks.add(task.id);
 
+		const service = await this.provider.acquire();
 		try {
 			// 验证命令参数
 			const unsupportedOptions = detectUnsupportedOptions(task.ffmpegArgs);
@@ -141,40 +152,78 @@ export class QueueProcessor {
 			// 准备输入文件
 			const inputFilesList: Array<{ file: File; name: string }> = [];
 
-			// 从 formValues 中提取文件
-			for (const [key, value] of Object.entries(task.formValues)) {
-				if (value instanceof File) {
-					const sanitized = validateAndSanitizeFilenames([value])[0];
-					if (sanitized.warnings.length > 0) {
-						this.config.onLog?.(
-							`[警告] ${sanitized.warnings.join(", ")}`,
-							"warning",
+			// 从 task._files 中提取文件（批量任务中保存的临时 File 对象）
+			const pendingFiles: File[] = [];
+			if (task._files) {
+				for (const [, value] of Object.entries(task._files)) {
+					if (value instanceof File) {
+						pendingFiles.push(value);
+					} else if (Array.isArray(value)) {
+						pendingFiles.push(
+							...(value.filter((v) => v instanceof File) as File[]),
 						);
 					}
-					inputFilesList.push({ file: value, name: sanitized.sanitized });
-				} else if (Array.isArray(value)) {
-					const files = value.filter((v) => v instanceof File) as File[];
-					const sanitized = validateAndSanitizeFilenames(files);
-					for (const item of sanitized) {
-						if (item.warnings.length > 0) {
-							this.config.onLog?.(
-								`[警告] ${item.warnings.join(", ")}`,
-								"warning",
-							);
-						}
+				}
+			}
+
+			this.config.onLog?.(
+				`[调试] 从 task._files 提取的文件: ${pendingFiles.map((f) => f.name).join(", ")}`,
+				"info",
+			);
+
+			// 从 ffmpegArgs 中提取文件名（已经是标准化后的名称）
+			// 假设第一个 -i 后面的参数是输入文件名
+			const inputFileNameInArgs =
+				task.ffmpegArgs[task.ffmpegArgs.indexOf("-i") + 1];
+
+			this.config.onLog?.(
+				`[调试] 从 ffmpegArgs 提取的文件名: ${inputFileNameInArgs}`,
+				"info",
+			);
+
+			// 将文件和标准化后的名称关联
+			if (pendingFiles.length === 1 && inputFileNameInArgs) {
+				inputFilesList.push({
+					file: pendingFiles[0],
+					name: inputFileNameInArgs,
+				});
+			} else {
+				// 多文件情况：按顺序匹配
+				for (let i = 0; i < pendingFiles.length; i++) {
+					const argIndex = task.ffmpegArgs.findIndex(
+						(arg, idx) =>
+							arg === "-i" &&
+							idx >
+								(i === 0
+									? -1
+									: task.ffmpegArgs.lastIndexOf(
+											"-i",
+											task.ffmpegArgs.length - 1,
+										)),
+					);
+					if (argIndex !== -1) {
 						inputFilesList.push({
-							file: item.original,
-							name: item.sanitized,
+							file: pendingFiles[i],
+							name: task.ffmpegArgs[argIndex + 1],
 						});
 					}
 				}
 			}
 
-			// 执行 FFmpeg 命令
-			const outputBlob = await this.ffmpegService.executeCommand({
+			this.config.onLog?.(
+				`[调试] 将要写入的文件映射: ${inputFilesList.map((item) => `${item.file.name} -> ${item.name}`).join(", ")}`,
+				"info",
+			);
+
+			// 执行 FFmpeg 命令（使用任务中已准备好的 ffmpegArgs 和 outputFileName）
+			const outputBlob = await service.executeCommand({
 				inputFiles: inputFilesList,
 				outputFileName: task.outputFileName,
 				ffmpegArgs: task.ffmpegArgs,
+				onProgress: (progress, time) => {
+					// 转发进度更新到 QueueProcessor 配置的回调
+					this.config.onTaskProgress?.(task.id, progress, time);
+				},
 			});
 
 			// 任务成功
@@ -187,12 +236,22 @@ export class QueueProcessor {
 			// 任务失败
 			const taskError = parseFFmpegError(error);
 			this.config.onTaskFail?.(task.id, taskError);
+
+			// 显示简化错误和原始错误
 			this.config.onLog?.(
 				`[队列] 任务失败: ${task.presetName} - ${taskError.message}`,
 				"error",
 			);
+			if (taskError.originalError) {
+				this.config.onLog?.(
+					`[队列] 原始错误: ${taskError.originalError}`,
+					"error",
+				);
+			}
 		} finally {
 			this.executingTasks.delete(task.id);
+			// 归还实例
+			this.provider.release(service);
 		}
 	}
 

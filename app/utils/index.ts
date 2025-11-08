@@ -5,11 +5,13 @@
 
 // 错误处理和文件名清理
 export {
+	applyFilenameMappings,
 	detectUnsupportedOptions,
 	formatErrorMessage,
 	isRecoverableError,
 	parseFFmpegError,
 	sanitizeFilename,
+	standardizeAndUniquifyFilenames,
 	UNSUPPORTED_WASM_OPTIONS,
 	validateAndSanitizeFilenames,
 } from "./errorHandling";

@@ -273,9 +273,11 @@ export default function FFmpegWeb() {
 								<TabsContent value="queue">
 									<QueueControlPanel
 										queue={taskManager.queue}
-										executingTasks={[]}
+										executingTasks={taskManager.executingTasks}
+										completedTasks={taskManager.recentCompletedTasks}
 										isProcessing={taskManager.isProcessingQueue}
 										batchSize={taskManager.queueConfig.batchSize}
+										initialQueueSize={taskManager.initialQueueSize}
 										onStart={taskManager.startQueue}
 										onStop={taskManager.stopQueue}
 										onClear={taskManager.clearQueue}
@@ -283,6 +285,25 @@ export default function FFmpegWeb() {
 										onBatchSizeChange={(size) =>
 											taskManager.setQueueConfig({ batchSize: size })
 										}
+										getTaskResultUrl={(taskId) =>
+											taskManager.getTaskResult(taskId)
+										}
+										onDownloadResult={(taskId) => {
+											const blobUrl = taskManager.getTaskResult(taskId);
+											if (blobUrl) {
+												const task = taskManager.recentCompletedTasks.find(
+													(t) => t.id === taskId,
+												);
+												if (task) {
+													const a = document.createElement("a");
+													a.href = blobUrl;
+													a.download = task.outputFileName;
+													document.body.appendChild(a);
+													a.click();
+													document.body.removeChild(a);
+												}
+											}
+										}}
 									/>
 								</TabsContent>
 

@@ -20,6 +20,8 @@ import {
 	parseCLICommand,
 	parseFFmpegError,
 	replaceTemplateVariables,
+	sanitizeFilename,
+	standardizeAndUniquifyFilenames,
 	uploadJSON,
 	validateTemplateUsage,
 } from "../utils";
@@ -100,6 +102,15 @@ export function useFFmpegWeb() {
 			setFormValues(defaultValues);
 		}
 	}, [selectedPreset, setFormValues]);
+
+	// 当预设列表更新时，保持 selectedPreset 指向最新对象（避免编辑保存后仍引用旧对象）
+	useEffect(() => {
+		if (!selectedPreset) return;
+		const latest = presets.find((p) => p.id === selectedPreset.id);
+		if (latest && latest !== selectedPreset) {
+			setSelectedPreset(latest);
+		}
+	}, [presets, selectedPreset, setSelectedPreset]);
 
 	/**
 	 * 计算动态输出文件名
@@ -228,6 +239,83 @@ export function useFFmpegWeb() {
 				toast.warning(msg);
 				return;
 			}
+		}
+
+		// 批量文件场景：单一 file-input 且 multiple=true，并选择了多个文件 -> 拆分为多个队列任务
+		if (
+			fileInputFields.length === 1 &&
+			fileInputFields[0].multiple &&
+			Array.isArray(formValues[fileInputFields[0].name]) &&
+			(formValues[fileInputFields[0].name] as File[]).length > 1
+		) {
+			const inputField = fileInputFields[0];
+			const files = formValues[inputField.name] as File[];
+			addLog(
+				`检测到批量文件，共 ${files.length} 个，将拆分为 ${files.length} 个队列任务`,
+				"info",
+			);
+
+			// 预先标准化所有文件名
+			const standardized = standardizeAndUniquifyFilenames(files);
+
+			const tasks = files.map((file, index) => {
+				const std = standardized[index];
+
+				// 记录文件名标准化
+				if (std.warnings.length) {
+					addLog(
+						`[文件名标准化] ${std.original} -> ${std.finalName} (${std.warnings.join(", ")})`,
+						"warning",
+					);
+				} else if (std.original !== std.finalName) {
+					addLog(`[文件名标准化] ${std.original} -> ${std.finalName}`, "info");
+				}
+
+				const fv: Record<string, unknown> = {
+					...formValues,
+					[inputField.name]: file,
+				};
+
+				let args = selectedPreset.ffmpegArgs;
+				if (selectedPreset.formSchema?.length) {
+					const nonFileVals = extractNonFileValues(
+						fv as Record<string, string | number | boolean | File | File[]>,
+					);
+					args = replaceTemplateVariables(
+						selectedPreset.ffmpegArgs,
+						nonFileVals,
+					);
+				}
+
+				// 应用文件名映射到 args（将原始文件名替换为标准化文件名）
+				args = args.map((arg) => (arg === file.name ? std.finalName : arg));
+
+				const outName = computeDynamicOutputName(selectedPreset, fv);
+				const sanitizedOutName = sanitizeFilename(outName);
+
+				// 替换输出文件名
+				args = args.map((a) => {
+					if (a === "{{output}}" || a === outName) {
+						return sanitizedOutName;
+					}
+					return a;
+				});
+
+				addLog(
+					`[任务 ${index + 1}] 最终命令: ffmpeg ${args.join(" ")}`,
+					"info",
+				);
+
+				return taskManager.createTask(
+					selectedPreset,
+					fv,
+					args,
+					sanitizedOutName,
+				);
+			});
+			taskManager.addTasksToQueue(tasks);
+			toast.success(`已添加 ${tasks.length} 个任务到队列`);
+			return;
 		}
 
 		setProcessing(true);

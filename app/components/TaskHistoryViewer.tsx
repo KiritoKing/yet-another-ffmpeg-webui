@@ -1,4 +1,4 @@
-import { Calendar, Download, Filter, RefreshCw, Trash2 } from "lucide-react";
+import { Calendar, Filter, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { taskDB } from "../services/taskDatabase";
@@ -81,7 +81,7 @@ export function TaskHistoryViewer() {
 			const deleted = await taskDB.cleanupOldTasks(30);
 			toast.success(`已清理 ${deleted} 条旧记录`);
 			await loadTasks();
-		} catch (error) {
+		} catch (_error) {
 			toast.error("清理失败");
 		}
 	};
@@ -92,7 +92,7 @@ export function TaskHistoryViewer() {
 			await taskDB.tasks.delete(taskId);
 			toast.success("已删除任务记录");
 			await loadTasks();
-		} catch (error) {
+		} catch (_error) {
 			toast.error("删除失败");
 		}
 	};

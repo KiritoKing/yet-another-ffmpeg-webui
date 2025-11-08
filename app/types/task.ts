@@ -56,6 +56,9 @@ export interface Task {
 	ffmpegArgs: string[]; // 实际执行的命令参数
 	formValues: Record<string, unknown>; // 表单值（排除 File 对象）
 
+	// 临时文件对象（仅用于传递，不持久化）
+	_files?: Record<string, File | File[]>;
+
 	// 错误信息
 	error?: TaskError;
 

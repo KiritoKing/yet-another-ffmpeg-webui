@@ -21,6 +21,7 @@ export interface ExecuteCommandOptions {
 	inputFiles: { file: File; name: string }[];
 	outputFileName: string;
 	ffmpegArgs: string[];
+	onProgress?: (progress: number, time: number) => void;
 }
 
 export class FFmpegService {
@@ -114,10 +115,17 @@ export class FFmpegService {
 			throw new Error("FFmpeg 正在执行任务，请等待完成或中止当前任务");
 		}
 
-		const { inputFiles, outputFileName, ffmpegArgs } = options;
+		const { inputFiles, outputFileName, ffmpegArgs, onProgress } = options;
 		const fileNames: string[] = [];
 
 		this.isExecuting = true;
+
+		// 如果提供了进度回调，临时设置它
+		if (onProgress && this.ffmpeg) {
+			this.ffmpeg.on("progress", ({ progress, time }) => {
+				onProgress(progress, time);
+			});
+		}
 
 		try {
 			// 写入所有输入文件

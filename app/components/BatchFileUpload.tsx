@@ -6,7 +6,6 @@ import { sanitizeFilename } from "../utils";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { Progress } from "./ui/progress";
 
 interface BatchFileUploadProps {
 	preset: CommandPreset;

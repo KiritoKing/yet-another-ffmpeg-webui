@@ -16,11 +16,17 @@ interface TaskState {
 	// 正在执行的任务列表（批处理时可能有多个）
 	executingTasks: Task[];
 
+	// 最近完成的任务（当前会话，不持久化）
+	recentCompletedTasks: Task[];
+
 	// 队列配置
 	queueConfig: QueueConfig;
 
 	// 是否正在处理队列
 	isProcessingQueue: boolean;
+
+	// 队列初始大小，用于计算总体进度
+	initialQueueSize: number;
 
 	// 任务结果的内存缓存（Blob URLs）
 	// 仅保存当前会话的结果，应用退出时释放
@@ -49,8 +55,10 @@ interface TaskState {
 
 	addExecutingTask: (task: Task) => void;
 	removeExecutingTask: (taskId: string) => void;
+	updateExecutingTask: (taskId: string, updates: Partial<Task>) => void;
 
 	setProcessingQueue: (isProcessing: boolean) => void;
+	setInitialQueueSize: (size: number) => void;
 
 	// 任务结果管理
 	setTaskResult: (taskId: string, blobUrl: string) => void;
@@ -67,12 +75,14 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 	currentTask: null,
 	queue: [],
 	executingTasks: [],
+	recentCompletedTasks: [],
 	queueConfig: {
 		batchSize: 1,
 		autoStart: true,
 		maxRetries: 0,
 	},
 	isProcessingQueue: false,
+	initialQueueSize: 0,
 	taskResults: new Map(),
 
 	// Actions
@@ -133,6 +143,13 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 				return { currentTask: updatedTask };
 			}
 
+			// 更新执行中任务列表
+			const updatedExecutingTasks = state.executingTasks.map((t) =>
+				t.id === taskId
+					? { ...t, status: "running" as TaskStatus, startedAt: now }
+					: t,
+			);
+
 			// 更新队列中的任务
 			const updatedQueue = state.queue.map((t) =>
 				t.id === taskId
@@ -140,7 +157,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 					: t,
 			);
 
-			return { queue: updatedQueue };
+			return {
+				queue: updatedQueue,
+				executingTasks: updatedExecutingTasks,
+			};
 		});
 	},
 
@@ -173,13 +193,23 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 				state.taskResults.set(taskId, outputBlobUrl);
 			}
 
+			// 添加到最近完成列表（限制最多20个）
+			const recentCompleted = [
+				completedTask,
+				...state.recentCompletedTasks,
+			].slice(0, 20);
+
 			// 更新状态
 			if (state.currentTask?.id === taskId) {
-				return { currentTask: completedTask };
+				return {
+					currentTask: completedTask,
+					recentCompletedTasks: recentCompleted,
+				};
 			}
 
 			return {
 				executingTasks: state.executingTasks.filter((t) => t.id !== taskId),
+				recentCompletedTasks: recentCompleted,
 			};
 		});
 	},
@@ -266,8 +296,21 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 			executingTasks: state.executingTasks.filter((t) => t.id !== taskId),
 		})),
 
+	updateExecutingTask: (taskId, updates) =>
+		set((state) => ({
+			executingTasks: state.executingTasks.map((t) =>
+				t.id === taskId ? { ...t, ...updates } : t,
+			),
+		})),
+
 	setProcessingQueue: (isProcessing) =>
-		set({ isProcessingQueue: isProcessing }),
+		set({
+			isProcessingQueue: isProcessing,
+			// 如果开始处理，重置初始队列大小；结束时保持不变
+			initialQueueSize: isProcessing ? get().queue.length : 0,
+		}),
+
+	setInitialQueueSize: (size) => set({ initialQueueSize: size }),
 
 	// 任务结果管理
 	setTaskResult: (taskId, blobUrl) => {

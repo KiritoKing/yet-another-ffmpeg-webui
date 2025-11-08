@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { FFmpegWorkerPool, SingleFFmpegProvider } from "../services/ffmpegPool";
 import type { FFmpegService } from "../services/ffmpegService";
 import { QueueProcessor } from "../services/queueProcessor";
 import { useLogStore } from "../store/logStore";
@@ -7,10 +8,12 @@ import { useTaskStore } from "../store/taskStore";
 import type { CommandPreset } from "../types/command";
 import type { Task, TaskStatus } from "../types/task";
 import {
+	applyFilenameMappings,
 	detectUnsupportedOptions,
 	formatErrorMessage,
 	parseFFmpegError,
 	sanitizeFilename,
+	standardizeAndUniquifyFilenames,
 } from "../utils";
 
 /**
@@ -26,10 +29,12 @@ export function useTaskManager(
 	const {
 		currentTask,
 		queue,
+		executingTasks,
+		recentCompletedTasks,
 		queueConfig,
 		isProcessingQueue,
+		initialQueueSize,
 		setCurrentTask,
-		updateCurrentTask,
 		clearCurrentTask,
 		addToQueue,
 		addMultipleToQueue,
@@ -40,7 +45,11 @@ export function useTaskManager(
 		completeTask,
 		failTask,
 		abortTask,
+		addExecutingTask,
+		removeExecutingTask,
+		updateExecutingTask,
 		setTaskResult,
+		getTaskResult,
 		clearTaskResult,
 		setProcessingQueue,
 	} = useTaskStore();
@@ -57,7 +66,7 @@ export function useTaskManager(
 		): Task => {
 			// 提取输入文件信息
 			const inputFiles: Task["inputFiles"] = [];
-			for (const [key, value] of Object.entries(formValues)) {
+			for (const [, value] of Object.entries(formValues)) {
 				if (value instanceof File) {
 					inputFiles.push({
 						name: value.name,
@@ -109,6 +118,13 @@ export function useTaskManager(
 						([_, v]) => !(v instanceof File) && !Array.isArray(v),
 					),
 				),
+				// 保存 File 对象到临时字段（用于队列执行，不持久化）
+				_files: Object.fromEntries(
+					Object.entries(formValues).filter(
+						([_, v]) =>
+							v instanceof File || (Array.isArray(v) && v[0] instanceof File),
+					),
+				) as Record<string, File | File[]>,
 				estimatedMemoryMB: preset.estimatedMemoryMB,
 			};
 
@@ -140,29 +156,76 @@ export function useTaskManager(
 			addLog(`开始执行任务: ${task.presetName}`, "info");
 
 			try {
-				// 准备输入文件
-				const inputFilesList: Array<{ file: File; name: string }> = [];
-				for (const [key, value] of Object.entries(formValues)) {
+				// 准备输入文件（统一标准化并去重），记录日志
+				const pendingFiles: File[] = [];
+				for (const [, value] of Object.entries(formValues)) {
 					if (value instanceof File) {
-						const sanitized = sanitizeFilename(value.name);
-						inputFilesList.push({ file: value, name: sanitized });
+						pendingFiles.push(value);
 					} else if (Array.isArray(value)) {
-						const files = value.filter((v) => v instanceof File) as File[];
-						for (const file of files) {
-							const sanitized = sanitizeFilename(file.name);
-							inputFilesList.push({ file, name: sanitized });
-						}
+						pendingFiles.push(
+							...(value.filter((v) => v instanceof File) as File[]),
+						);
 					}
+				}
+				const standardized = standardizeAndUniquifyFilenames(pendingFiles);
+				const inputFilesList: Array<{ file: File; name: string }> = [];
+
+				// 构建文件名映射（原始名 -> 标准化名）
+				const filenameMappings: Array<{ original: string; finalName: string }> =
+					[];
+
+				for (const item of standardized) {
+					if (item.warnings.length) {
+						addLog(
+							`[文件名标准化] ${item.original} -> ${item.finalName} (${item.warnings.join(", ")})`,
+							"warning",
+						);
+					} else if (item.original !== item.finalName) {
+						addLog(
+							`[文件名标准化] ${item.original} -> ${item.finalName}`,
+							"info",
+						);
+					}
+					const file = pendingFiles.find((f) => f.name === item.original);
+					if (file) {
+						inputFilesList.push({ file, name: item.finalName });
+						filenameMappings.push({
+							original: item.original,
+							finalName: item.finalName,
+						});
+					}
+				}
+
+				// 标准化输出文件名
+				const sanitizedOutputFileName = sanitizeFilename(task.outputFileName);
+				if (sanitizedOutputFileName !== task.outputFileName) {
+					addLog(
+						`[输出文件名标准化] ${task.outputFileName} -> ${sanitizedOutputFileName}`,
+						"info",
+					);
+					filenameMappings.push({
+						original: task.outputFileName,
+						finalName: sanitizedOutputFileName,
+					});
+				}
+
+				// 更新 ffmpegArgs 中的文件名引用
+				const updatedArgs = applyFilenameMappings(
+					task.ffmpegArgs,
+					filenameMappings,
+				);
+
+				// 记录最终执行的命令
+				if (JSON.stringify(updatedArgs) !== JSON.stringify(task.ffmpegArgs)) {
+					addLog(`[最终命令] ffmpeg ${updatedArgs.join(" ")}`, "info");
 				}
 
 				// 执行命令
 				const outputBlob = await service.executeCommand({
 					inputFiles: inputFilesList,
-					outputFileName: task.outputFileName,
-					ffmpegArgs: task.ffmpegArgs,
-				});
-
-				// 创建 Blob URL
+					outputFileName: sanitizedOutputFileName,
+					ffmpegArgs: updatedArgs,
+				}); // 创建 Blob URL
 				const blobUrl = URL.createObjectURL(outputBlob);
 
 				// 完成任务
@@ -229,8 +292,8 @@ export function useTaskManager(
 	 * 开始处理队列
 	 */
 	const startQueue = useCallback(async () => {
-		const service = ffmpegServiceRef.current;
-		if (!service) {
+		const baseService = ffmpegServiceRef.current;
+		if (!baseService) {
 			toast.error("请先加载 FFmpeg");
 			return;
 		}
@@ -247,22 +310,42 @@ export function useTaskManager(
 
 		try {
 			setProcessingQueue(true);
-			addLog(`开始处理队列 (${queue.length} 个任务)`, "info");
+			addLog(
+				`开始处理队列 (${queue.length} 个任务) 并发=${queueConfig.batchSize}`,
+				"info",
+			);
+
+			// 选择 Provider：batchSize=1 时复用现有实例；否则创建池
+			const provider =
+				queueConfig.batchSize === 1
+					? new SingleFFmpegProvider(baseService)
+					: new FFmpegWorkerPool({
+							mode: baseService.getMode() === "multi" ? "multi" : "single",
+							size: queueConfig.batchSize,
+							onLog: (m) => addLog(m, "info"),
+						});
 
 			// 创建队列处理器
-			const processor = new QueueProcessor(service, {
+			const processor = new QueueProcessor(provider, {
 				batchSize: queueConfig.batchSize,
 				onTaskStart: (task) => {
-					startTask(task.id);
+					addExecutingTask(task); // 先添加到执行列表
+					startTask(task.id); // 再更新状态
 					addLog(`[队列] 开始: ${task.presetName}`, "info");
+				},
+				onTaskProgress: (taskId, progress) => {
+					// 更新正在执行任务的进度
+					updateExecutingTask(taskId, { progress });
 				},
 				onTaskComplete: (taskId, outputSize, outputBlob) => {
 					const blobUrl = URL.createObjectURL(outputBlob);
 					completeTask(taskId, outputSize, blobUrl);
 					setTaskResult(taskId, blobUrl);
+					removeExecutingTask(taskId);
 				},
 				onTaskFail: (taskId, error) => {
 					failTask(taskId, error);
+					removeExecutingTask(taskId);
 					if (error) {
 						const msg = formatErrorMessage(error);
 						addLog(msg, "error");
@@ -279,7 +362,7 @@ export function useTaskManager(
 			processor.addTasks([...queue]);
 			clearQueue();
 
-			// 开始处理
+			// 开始处理（内部并发）
 			await processor.start();
 
 			addLog("队列处理完成", "success");
@@ -304,6 +387,9 @@ export function useTaskManager(
 		setTaskResult,
 		clearQueue,
 		addLog,
+		addExecutingTask,
+		removeExecutingTask,
+		updateExecutingTask,
 	]);
 
 	/**
@@ -348,8 +434,11 @@ export function useTaskManager(
 		// State
 		currentTask,
 		queue,
+		executingTasks,
+		recentCompletedTasks,
 		queueConfig,
 		isProcessingQueue,
+		initialQueueSize,
 
 		// Actions
 		createTask,
@@ -362,5 +451,6 @@ export function useTaskManager(
 		removeFromQueue,
 		clearQueue,
 		abortCurrentTask,
+		getTaskResult,
 	};
 }

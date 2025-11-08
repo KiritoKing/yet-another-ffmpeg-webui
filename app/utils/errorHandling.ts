@@ -159,26 +159,101 @@ export function detectUnsupportedOptions(args: string[]): string[] {
  * 清理文件名：移除中文字符和空格
  */
 export function sanitizeFilename(filename: string): string {
-	// 提取文件名和扩展名
+	// 提取文件名与扩展名
 	const lastDotIndex = filename.lastIndexOf(".");
-	const name = lastDotIndex > 0 ? filename.slice(0, lastDotIndex) : filename;
-	const ext = lastDotIndex > 0 ? filename.slice(lastDotIndex) : "";
+	const rawName = lastDotIndex > 0 ? filename.slice(0, lastDotIndex) : filename;
+	let ext = lastDotIndex > 0 ? filename.slice(lastDotIndex + 1) : "";
+
+	// 规范扩展名为小写
+	ext = ext.toLowerCase();
 
 	// 清理文件名：
-	// 1. 移除中文字符
-	// 2. 空格替换为下划线
-	// 3. 移除特殊字符
-	let sanitized = name
-		.replace(/[\u4e00-\u9fa5]+/g, "") // 移除中文
-		.replace(/\s+/g, "_") // 空格转下划线
-		.replace(/[^\w\-_.]/g, ""); // 只保留字母、数字、-、_、.
+	// 1. 移除中文字符 (避免某些 WASM/浏览器环境异常)
+	// 2. 将空格与连续的分隔符转为单个下划线
+	// 3. 移除不安全/特殊字符，仅保留字母、数字、-、_、.
+	let name = rawName
+		.replace(/[\u4e00-\u9fa5]+/g, "")
+		.replace(/\s+/g, "_")
+		.replace(/[^\w\-_.]/g, "");
 
-	// 如果清理后为空，使用时间戳
-	if (!sanitized) {
-		sanitized = `file_${Date.now()}`;
+	// 折叠多个下划线
+	name = name.replace(/_+/g, "_");
+
+	// 限制长度，避免过长文件名导致虚拟 FS 或浏览器处理问题（保留扩展名）
+	const MAX_NAME_LEN = 48;
+	if (name.length > MAX_NAME_LEN) {
+		name = name.slice(0, MAX_NAME_LEN);
 	}
 
-	return sanitized + ext;
+	// 若清理后为空则使用时间戳
+	if (!name) {
+		name = `file_${Date.now()}`;
+	}
+
+	return ext ? `${name}.${ext}` : name;
+}
+
+/**
+ * 统一处理一组文件名：生成去重后的标准化文件名
+ */
+export function standardizeAndUniquifyFilenames(files: File[]): Array<{
+	original: string;
+	sanitized: string;
+	finalName: string; // 去重后的最终名称
+	warnings: string[];
+}> {
+	const results: Array<{
+		original: string;
+		sanitized: string;
+		finalName: string;
+		warnings: string[];
+	}> = [];
+	const used = new Set<string>();
+
+	for (const file of files) {
+		const warnings: string[] = [];
+		const sanitized = sanitizeFilename(file.name);
+		if (/\s+/.test(file.name)) warnings.push("包含空格已替换为下划线");
+		if (/[\u4e00-\u9fa5]+/.test(file.name)) warnings.push("包含中文字符已移除");
+		if (/[^\w\-_.\s\u4e00-\u9fa5]/.test(file.name))
+			warnings.push("包含特殊字符已移除");
+		if (sanitized.length !== file.name.length) warnings.push("已标准化文件名");
+
+		let finalName = sanitized;
+		let counter = 1;
+		while (used.has(finalName)) {
+			const lastDot = sanitized.lastIndexOf(".");
+			if (lastDot !== -1) {
+				const base = sanitized.slice(0, lastDot);
+				const ext = sanitized.slice(lastDot);
+				finalName = `${base}_${counter}${ext}`;
+			} else {
+				finalName = `${sanitized}_${counter}`;
+			}
+			counter++;
+		}
+		if (finalName !== sanitized) {
+			warnings.push("检测到重名，已追加序号");
+		}
+		used.add(finalName);
+		results.push({ original: file.name, sanitized, finalName, warnings });
+	}
+
+	return results;
+}
+
+/**
+ * 根据文件名映射更新 ffmpegArgs 中出现的原始文件名
+ */
+export function applyFilenameMappings(
+	ffmpegArgs: string[],
+	mappings: Array<{ original: string; finalName: string }>,
+): string[] {
+	if (!mappings.length) return ffmpegArgs;
+	return ffmpegArgs.map((arg) => {
+		const mapping = mappings.find((m) => m.original === arg);
+		return mapping ? mapping.finalName : arg;
+	});
 }
 
 /**
@@ -189,26 +264,14 @@ export function validateAndSanitizeFilenames(files: File[]): Array<{
 	sanitized: string;
 	warnings: string[];
 }> {
+	// 保持向后兼容：不做去重，仅返回基础标准化结果
 	return files.map((file) => {
-		const warnings: string[] = [];
-		const sanitized = sanitizeFilename(file.name);
-
-		// 检测中文
-		if (/[\u4e00-\u9fa5]+/.test(file.name)) {
-			warnings.push("文件名包含中文字符，已自动转换");
-		}
-
-		// 检测空格
-		if (/\s+/.test(file.name)) {
-			warnings.push("文件名包含空格，已转换为下划线");
-		}
-
-		// 检测特殊字符
-		if (/[^\w\-_.\s\u4e00-\u9fa5]/.test(file.name)) {
-			warnings.push("文件名包含特殊字符，已移除");
-		}
-
-		return { original: file, sanitized, warnings };
+		const std = standardizeAndUniquifyFilenames([file])[0];
+		return {
+			original: file,
+			sanitized: std.finalName,
+			warnings: std.warnings,
+		};
 	});
 }
 

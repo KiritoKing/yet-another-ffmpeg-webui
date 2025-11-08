@@ -7,10 +7,12 @@
 		"dev": "react-router dev",
 		"start": "react-router-serve ./build/server/index.js",
 		"typecheck": "react-router typegen && tsc",
-		"prepare": "husky",
-		"lint": "pnpm exec biome lint .",
-		"format": "pnpm exec biome format .",
-		"lint:staged": "pnpm exec biome check --staged --error-on-warnings"
+		"prepare": "husky install",
+		"lint": "biome check . --diagnostic-level=error",
+		"format": "biome format .",
+		"format:write": "biome format . --write",
+		"lint:staged": "biome check --staged --diagnostic-level=error",
+		"ci:check": "pnpm lint && pnpm typecheck"
 	},
 	"dependencies": {
 		"@ffmpeg/ffmpeg": "^0.12.15",

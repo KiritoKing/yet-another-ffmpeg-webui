@@ -127,7 +127,7 @@ export function parseCLICommand(cliCommand: string): Partial<CommandPreset> {
 				name: "width",
 				label: "宽度",
 				type: "number",
-				defaultValue: Number.parseInt(width),
+				defaultValue: Number.parseInt(width, 10),
 				min: 128,
 				max: 7680,
 				description: "输出视频宽度（像素）",
@@ -136,7 +136,7 @@ export function parseCLICommand(cliCommand: string): Partial<CommandPreset> {
 				name: "height",
 				label: "高度",
 				type: "number",
-				defaultValue: Number.parseInt(height),
+				defaultValue: Number.parseInt(height, 10),
 				min: 128,
 				max: 4320,
 				description: "输出视频高度（像素）",
@@ -152,7 +152,7 @@ export function parseCLICommand(cliCommand: string): Partial<CommandPreset> {
 		const bitrateValue = ffmpegArgs[bitrateIdx + 1];
 		const match = bitrateValue.match(/^(\d+)([kKmM])?$/);
 		if (match) {
-			let bitrate = Number.parseInt(match[1]);
+			let bitrate = Number.parseInt(match[1], 10);
 			const unit = match[2]?.toLowerCase();
 			if (unit === "k") {
 				// 已是 kbps
@@ -176,7 +176,7 @@ export function parseCLICommand(cliCommand: string): Partial<CommandPreset> {
 	// 3. 识别 CRF 质量（-crf）
 	const crfIdx = ffmpegArgs.indexOf("-crf");
 	if (crfIdx !== -1 && crfIdx < ffmpegArgs.length - 1) {
-		const crfValue = Number.parseInt(ffmpegArgs[crfIdx + 1]);
+		const crfValue = Number.parseInt(ffmpegArgs[crfIdx + 1], 10);
 		if (!Number.isNaN(crfValue)) {
 			formSchema.push({
 				name: "crf",
