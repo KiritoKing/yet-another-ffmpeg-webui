@@ -9,6 +9,14 @@ const ERROR_PATTERNS: Array<{
 	message: string;
 	suggestions: string[];
 }> = [
+	// 中止相关错误（优先匹配）
+	{
+		pattern: /TASK_ABORTED|called FFmpeg\.terminate\(\)|FFmpeg\.terminate\(\)/i,
+		type: "recoverable",
+		message: "任务已被用户中止",
+		suggestions: [],
+	},
+
 	// 文件相关错误
 	{
 		pattern: /ENOENT|No such file/i,
@@ -87,22 +95,6 @@ const ERROR_PATTERNS: Array<{
 			"使用常见格式：MP4, WebM, AVI, MKV",
 			"检查输出文件扩展名是否正确",
 		],
-	},
-
-	// 中文文件名问题
-	{
-		pattern: /[\u4e00-\u9fa5]+/,
-		type: "recoverable",
-		message: "文件名包含中文字符可能导致问题",
-		suggestions: ["建议使用英文文件名", "系统会自动处理文件名"],
-	},
-
-	// 空格文件名问题
-	{
-		pattern: /\s+/,
-		type: "recoverable",
-		message: "文件名包含空格可能导致问题",
-		suggestions: ["建议使用下划线或连字符代替空格", "系统会自动处理文件名"],
 	},
 ];
 

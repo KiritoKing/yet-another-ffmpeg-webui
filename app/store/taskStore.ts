@@ -108,15 +108,23 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 		set({ currentTask: null });
 	},
 
-	addToQueue: (task) =>
+	addToQueue: (task) => {
 		set((state) => ({
 			queue: [...state.queue, task],
-		})),
+		}));
+		// 立即持久化新创建的任务
+		get().persistTask(task);
+	},
 
-	addMultipleToQueue: (tasks) =>
+	addMultipleToQueue: (tasks) => {
 		set((state) => ({
 			queue: [...state.queue, ...tasks],
-		})),
+		}));
+		// 批量持久化所有新任务
+		for (const task of tasks) {
+			get().persistTask(task);
+		}
+	},
 
 	removeFromQueue: (taskId) =>
 		set((state) => ({
@@ -132,10 +140,12 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
 	startTask: (taskId) => {
 		const now = Date.now();
+		let updatedTask: Task | null = null;
+
 		set((state) => {
 			// 更新当前任务
 			if (state.currentTask?.id === taskId) {
-				const updatedTask = {
+				updatedTask = {
 					...state.currentTask,
 					status: "running" as TaskStatus,
 					startedAt: now,
@@ -144,24 +154,41 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 			}
 
 			// 更新执行中任务列表
-			const updatedExecutingTasks = state.executingTasks.map((t) =>
-				t.id === taskId
-					? { ...t, status: "running" as TaskStatus, startedAt: now }
-					: t,
-			);
+			const updatedExecutingTasks = state.executingTasks.map((t) => {
+				if (t.id === taskId) {
+					updatedTask = {
+						...t,
+						status: "running" as TaskStatus,
+						startedAt: now,
+					};
+					return updatedTask;
+				}
+				return t;
+			});
 
 			// 更新队列中的任务
-			const updatedQueue = state.queue.map((t) =>
-				t.id === taskId
-					? { ...t, status: "running" as TaskStatus, startedAt: now }
-					: t,
-			);
+			const updatedQueue = state.queue.map((t) => {
+				if (t.id === taskId) {
+					updatedTask = {
+						...t,
+						status: "running" as TaskStatus,
+						startedAt: now,
+					};
+					return updatedTask;
+				}
+				return t;
+			});
 
 			return {
 				queue: updatedQueue,
 				executingTasks: updatedExecutingTasks,
 			};
 		});
+
+		// 持久化状态更新
+		if (updatedTask) {
+			get().persistTask(updatedTask);
+		}
 	},
 
 	completeTask: (taskId, outputSize, outputBlobUrl) => {

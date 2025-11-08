@@ -166,12 +166,19 @@ export class FFmpegService {
 
 			return new Blob([buffer], { type: mimeType });
 		} catch (error) {
-			// 如果是主动中止，不报错
-			if (this.isAborting) {
+			// 检查是否是中止错误
+			const errorStr = error instanceof Error ? error.message : String(error);
+			const isTerminated =
+				this.isAborting ||
+				errorStr.includes("called FFmpeg.terminate()") ||
+				errorStr.includes("FFmpeg.terminate()");
+
+			if (isTerminated) {
 				this.config.onLog?.(`任务已被用户中止`);
 				this.isAborting = false;
 				throw new Error("TASK_ABORTED");
 			}
+
 			this.config.onLog?.(`命令执行失败: ${error}`);
 			// 尝试清理文件，但不抛出错误
 			await this.cleanupFiles([...fileNames, outputFileName]);
