@@ -12,13 +12,11 @@ import {
 	exportPresetToJSON,
 	extractNonFileValues,
 	extractTemplateVariables,
-	formatErrorMessage,
 	getDefaultFormValues,
 	getFileInputFields,
 	getFileOutputField,
 	importPresetsFromJSON,
 	parseCLICommand,
-	parseFFmpegError,
 	replaceTemplateVariables,
 	sanitizeFilename,
 	standardizeAndUniquifyFilenames,
@@ -318,106 +316,41 @@ export function useFFmpegWeb() {
 			return;
 		}
 
-		setProcessing(true);
-		setProgress(0);
-		taskStartTimeRef.current = 0;
-		lastProgressUpdateRef.current = Date.now();
-		setCurrentStep("准备执行...");
-		clearLogs();
+		// 单文件场景：也提交到任务队列
+		addLog(`提交任务: ${selectedPreset.name}`, "info");
 
-		// 启动进度停滞检测
-		progressCheckIntervalRef.current = setInterval(() => {
-			const now = Date.now();
-			const timeSinceLastUpdate = now - lastProgressUpdateRef.current;
-
-			if (timeSinceLastUpdate > 30000) {
-				const message =
-					`⚠️ 任务进度已停滞 ${Math.floor(timeSinceLastUpdate / 1000)} 秒。可能原因：\n` +
-					`- VP9/H.265 等编码器处理大文件极慢\n` +
-					`- 建议使用"中止"按钮停止，并尝试:\n` +
-					`  • 使用更快的编码器（H.264）\n` +
-					`  • 降低分辨率或帧率\n` +
-					`  • 减小文件大小`;
-				addLog(message, "warning");
-
-				if (progressCheckIntervalRef.current) {
-					clearInterval(progressCheckIntervalRef.current);
-					progressCheckIntervalRef.current = null;
-				}
-			}
-		}, 30000);
-
-		try {
-			addLog(`开始执行命令: ${selectedPreset.name}`, "info");
-			setCurrentStep("正在处理...");
-
-			// 替换模板变量
-			let finalArgs = selectedPreset.ffmpegArgs;
-			if (selectedPreset.formSchema && selectedPreset.formSchema.length > 0) {
-				const nonFileValues = extractNonFileValues(formValues);
-				finalArgs = replaceTemplateVariables(
-					selectedPreset.ffmpegArgs,
-					nonFileValues,
-				);
-				addLog(`应用表单参数: ${JSON.stringify(nonFileValues)}`, "info");
-			}
-
-			const dynamicOutputName = computeDynamicOutputName(
-				selectedPreset,
-				formValues,
+		// 替换模板变量
+		let finalArgs = selectedPreset.ffmpegArgs;
+		if (selectedPreset.formSchema && selectedPreset.formSchema.length > 0) {
+			const nonFileValues = extractNonFileValues(formValues);
+			finalArgs = replaceTemplateVariables(
+				selectedPreset.ffmpegArgs,
+				nonFileValues,
 			);
-
-			// 替换 {{output}} 变量
-			finalArgs = finalArgs.map((arg) =>
-				arg === "{{output}}" ? dynamicOutputName : arg,
-			);
-
-			addLog(`最终命令: ${finalArgs.join(" ")}`, "info");
-
-			// 创建任务
-			const task = taskManager.createTask(
-				selectedPreset,
-				formValues,
-				finalArgs,
-				dynamicOutputName,
-			);
-
-			// 执行任务
-			const url = await taskManager.executeTask(task, formValues);
-
-			// 更新 UI 状态
-			setOutputUrl(url);
-			setProgress(1);
-			setCurrentStep("执行成功！");
-		} catch (error) {
-			console.error("执行错误:", error);
-			const taskError = parseFFmpegError(error);
-			const errorMessage = formatErrorMessage(taskError);
-			addLog(errorMessage, "error");
-
-			// 如果是不可恢复错误，清理 FFmpeg 实例
-			if (taskError.type === "non-recoverable") {
-				try {
-					if (service) {
-						await service.terminate();
-						ffmpegServiceRef.current = null;
-						setLoaded(false);
-						addLog("FFmpeg 实例已清理，请重新加载后再试", "warning");
-						toast.warning("FFmpeg 实例已清理，请重新加载后再试");
-					}
-				} catch (cleanupError) {
-					console.error("清理 FFmpeg 实例失败:", cleanupError);
-				}
-			}
-
-			setCurrentStep("执行失败");
-		} finally {
-			if (progressCheckIntervalRef.current) {
-				clearInterval(progressCheckIntervalRef.current);
-				progressCheckIntervalRef.current = null;
-			}
-			setProcessing(false);
+			addLog(`应用表单参数: ${JSON.stringify(nonFileValues)}`, "info");
 		}
+
+		const dynamicOutputName = computeDynamicOutputName(
+			selectedPreset,
+			formValues,
+		);
+
+		// 替换 {{output}} 变量
+		finalArgs = finalArgs.map((arg) =>
+			arg === "{{output}}" ? dynamicOutputName : arg,
+		);
+
+		addLog(`最终命令: ffmpeg ${finalArgs.join(" ")}`, "info");
+
+		// 创建并添加任务到队列
+		const task = taskManager.createTask(
+			selectedPreset,
+			formValues,
+			finalArgs,
+			dynamicOutputName,
+		);
+		taskManager.addTasksToQueue([task]);
+		toast.success("任务已添加到队列");
 	};
 
 	/**

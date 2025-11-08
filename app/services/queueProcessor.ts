@@ -31,6 +31,7 @@ export class QueueProcessor {
 	private config: QueueProcessorConfig;
 	private queue: Task[] = [];
 	private executingTasks: Set<string> = new Set();
+	private executingServices: Map<string, FFmpegService> = new Map(); // 跟踪正在执行的服务实例
 	private isProcessing = false;
 	private shouldStop = false;
 
@@ -83,10 +84,25 @@ export class QueueProcessor {
 	}
 
 	/**
-	 * 停止处理队列
+	 * 停止处理队列并中止所有正在执行的任务
 	 */
 	stop(): void {
 		this.shouldStop = true;
+
+		// 中止所有正在执行的任务
+		for (const [taskId, service] of this.executingServices.entries()) {
+			try {
+				service.abort();
+				this.config.onLog?.(`[队列] 中止任务: ${taskId}`, "warning");
+			} catch (error) {
+				console.error(`中止任务 ${taskId} 失败:`, error);
+			}
+		}
+
+		this.config.onLog?.(
+			"[队列] 队列已停止，所有正在执行的任务已中止",
+			"warning",
+		);
 	}
 
 	/**
@@ -136,6 +152,8 @@ export class QueueProcessor {
 		this.executingTasks.add(task.id);
 
 		const service = await this.provider.acquire();
+		this.executingServices.set(task.id, service); // 记录服务实例
+
 		try {
 			// 验证命令参数
 			const unsupportedOptions = detectUnsupportedOptions(task.ffmpegArgs);
@@ -235,21 +253,28 @@ export class QueueProcessor {
 		} catch (error) {
 			// 任务失败
 			const taskError = parseFFmpegError(error);
-			this.config.onTaskFail?.(task.id, taskError);
 
-			// 显示简化错误和原始错误
-			this.config.onLog?.(
-				`[队列] 任务失败: ${task.presetName} - ${taskError.message}`,
-				"error",
-			);
-			if (taskError.originalError) {
+			// 如果是中止错误，使用 onTaskAbort 回调
+			if (taskError.originalError === "TASK_ABORTED") {
+				this.config.onTaskAbort?.(task.id);
+				this.config.onLog?.(`[队列] 任务已中止: ${task.presetName}`, "warning");
+			} else {
+				this.config.onTaskFail?.(task.id, taskError);
+				// 显示简化错误和原始错误
 				this.config.onLog?.(
-					`[队列] 原始错误: ${taskError.originalError}`,
+					`[队列] 任务失败: ${task.presetName} - ${taskError.message}`,
 					"error",
 				);
+				if (taskError.originalError) {
+					this.config.onLog?.(
+						`[队列] 原始错误: ${taskError.originalError}`,
+						"error",
+					);
+				}
 			}
 		} finally {
 			this.executingTasks.delete(task.id);
+			this.executingServices.delete(task.id); // 移除服务实例记录
 			// 归还实例
 			this.provider.release(service);
 		}

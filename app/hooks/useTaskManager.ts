@@ -322,7 +322,7 @@ export function useTaskManager(
 					: new FFmpegWorkerPool({
 							mode: baseService.getMode() === "multi" ? "multi" : "single",
 							size: queueConfig.batchSize,
-							onLog: (m) => addLog(m, "info"),
+							onLog: (m, instanceId) => addLog(m, "info", instanceId),
 						});
 
 			// 创建队列处理器

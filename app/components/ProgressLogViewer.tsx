@@ -1,9 +1,9 @@
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
 	ChevronDownIcon,
 	ChevronUpIcon,
 	CopyIcon,
 	Loader2Icon,
-	TrashIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -17,7 +17,6 @@ import {
 	CollapsibleTrigger,
 } from "./ui/collapsible";
 import { Progress } from "./ui/progress";
-import { ScrollArea } from "./ui/scroll-area";
 
 interface ProgressLogViewerProps {
 	progress: number;
@@ -32,13 +31,13 @@ export function ProgressLogViewer({
 }: ProgressLogViewerProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const logs = useLogStore((state) => state.logs);
-	const clearLogs = useLogStore((state) => state.clearLogs);
+
+	// 虚拟滚动的父容器引用
+	const parentRef = useRef<HTMLDivElement>(null);
 
 	// 跟踪上一次的错误数量，只在新错误出现时自动展开
 	const prevErrorCountRef = useRef(0);
 
-	// 只显示最近的重要日志
-	const recentLogs = logs.slice(-50);
 	const errorLogs = logs.filter((log) => log.type === "error");
 	const warningLogs = logs.filter((log) => log.type === "warning");
 
@@ -55,6 +54,14 @@ export function ProgressLogViewer({
 		prevErrorCountRef.current = currentErrorCount;
 	}, [errorLogs.length]);
 
+	// 配置虚拟滚动器
+	const virtualizer = useVirtualizer({
+		count: logs.length,
+		getScrollElement: () => parentRef.current,
+		estimateSize: () => 48, // 每条日志大约 48px 高度
+		overscan: 10, // 预渲染前后各10条
+	});
+
 	// 复制所有日志
 	const handleCopyLogs = async () => {
 		if (logs.length === 0) {
@@ -70,7 +77,8 @@ export function ProgressLogViewer({
 					second: "2-digit",
 				});
 				const type = log.type.toUpperCase().padEnd(8);
-				return `[${time}] ${type} ${log.message}`;
+				const instance = log.instanceId ? `[${log.instanceId}] ` : "";
+				return `[${time}] ${type} ${instance}${log.message}`;
 			})
 			.join("\n");
 
@@ -98,21 +106,15 @@ export function ProgressLogViewer({
 
 					<div className="flex items-center gap-2">
 						{logs.length > 0 && (
-							<>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={handleCopyLogs}
-									title="复制所有日志"
-								>
-									<CopyIcon className="mr-1" />
-									复制
-								</Button>
-								<Button variant="ghost" size="sm" onClick={clearLogs}>
-									<TrashIcon className="mr-1" />
-									清除
-								</Button>
-							</>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={handleCopyLogs}
+								title="复制所有日志"
+							>
+								<CopyIcon className="mr-1" />
+								复制
+							</Button>
 						)}
 					</div>
 				</div>
@@ -153,7 +155,7 @@ export function ProgressLogViewer({
 					)}
 				</div>
 
-				{/* 详细日志 */}
+				{/* 详细日志（虚拟滚动） */}
 				<Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
 					<CollapsibleTrigger asChild>
 						<Button variant="outline" size="sm" className="w-full">
@@ -172,39 +174,64 @@ export function ProgressLogViewer({
 					</CollapsibleTrigger>
 
 					<CollapsibleContent className="mt-3">
-						<ScrollArea className="h-96 rounded-md border bg-muted/30">
-							{recentLogs.length === 0 ? (
+						<div
+							ref={parentRef}
+							className="h-96 rounded-md border bg-muted/30 overflow-auto"
+						>
+							{logs.length === 0 ? (
 								<p className="text-sm text-muted-foreground text-center py-8">
 									暂无日志
 								</p>
 							) : (
-								<div className="p-3 space-y-1 font-mono text-xs">
-									{recentLogs.map((log) => (
-										<div
-											key={log.id}
-											className={`flex items-start gap-2 p-2 rounded ${
-												log.type === "error"
-													? "bg-destructive/10 text-destructive"
-													: log.type === "warning"
-														? "bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200"
-														: log.type === "success"
-															? "bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-200"
-															: "bg-background text-foreground"
-											}`}
-										>
-											<span className="text-muted-foreground select-none shrink-0 tabular-nums">
-												{new Date(log.timestamp).toLocaleTimeString("zh-CN", {
-													hour: "2-digit",
-													minute: "2-digit",
-													second: "2-digit",
-												})}
-											</span>
-											<span className="break-all">{log.message}</span>
-										</div>
-									))}
+								<div
+									style={{
+										height: `${virtualizer.getTotalSize()}px`,
+										width: "100%",
+										position: "relative",
+									}}
+								>
+									{virtualizer.getVirtualItems().map((virtualItem) => {
+										const log = logs[virtualItem.index];
+										return (
+											<div
+												key={virtualItem.key}
+												style={{
+													position: "absolute",
+													top: 0,
+													left: 0,
+													width: "100%",
+													height: `${virtualItem.size}px`,
+													transform: `translateY(${virtualItem.start}px)`,
+												}}
+												className={`flex items-start gap-2 p-2 rounded font-mono text-xs ${
+													log.type === "error"
+														? "bg-destructive/10 text-destructive"
+														: log.type === "warning"
+															? "bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200"
+															: log.type === "success"
+																? "bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-200"
+																: "bg-background text-foreground"
+												}`}
+											>
+												<span className="text-muted-foreground select-none shrink-0 tabular-nums">
+													{new Date(log.timestamp).toLocaleTimeString("zh-CN", {
+														hour: "2-digit",
+														minute: "2-digit",
+														second: "2-digit",
+													})}
+												</span>
+												{log.instanceId && (
+													<span className="text-primary select-none shrink-0 font-semibold">
+														[{log.instanceId}]
+													</span>
+												)}
+												<span className="break-all">{log.message}</span>
+											</div>
+										);
+									})}
 								</div>
 							)}
-						</ScrollArea>
+						</div>
 					</CollapsibleContent>
 				</Collapsible>
 			</CardContent>

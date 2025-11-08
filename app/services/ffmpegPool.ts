@@ -36,7 +36,7 @@ export class SingleFFmpegProvider implements FFmpegProvider {
 export interface FFmpegWorkerPoolOptions {
 	size: number; // 池大小 = 并发 worker 数量
 	mode: FFmpegMode; // 与主实例一致的模式（single/multi）
-	onLog?: (message: string) => void; // 日志代理（可选）
+	onLog?: (message: string, instanceId?: string) => void; // 日志代理（可选，支持 instanceId）
 }
 
 /**
@@ -61,9 +61,10 @@ export class FFmpegWorkerPool implements FFmpegProvider {
 		if (this.loaded) return;
 
 		const createOne = async (index: number) => {
+			const instanceId = `worker-${index + 1}`;
 			const service = new FFmpegService({
 				mode: this.options.mode,
-				onLog: (msg) => this.options.onLog?.(`[worker#${index + 1}] ${msg}`),
+				onLog: (msg) => this.options.onLog?.(msg, instanceId),
 				// 进度可按需路由，这里仅透传日志，避免与任务绑定造成混乱
 			});
 			await service.load();

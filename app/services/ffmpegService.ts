@@ -29,6 +29,7 @@ export class FFmpegService {
 	private config: FFmpegConfig;
 	private loaded = false;
 	private isExecuting = false;
+	private isAborting = false;
 
 	constructor(config: FFmpegConfig) {
 		this.config = config;
@@ -165,12 +166,19 @@ export class FFmpegService {
 
 			return new Blob([buffer], { type: mimeType });
 		} catch (error) {
+			// 如果是主动中止，不报错
+			if (this.isAborting) {
+				this.config.onLog?.(`任务已被用户中止`);
+				this.isAborting = false;
+				throw new Error("TASK_ABORTED");
+			}
 			this.config.onLog?.(`命令执行失败: ${error}`);
 			// 尝试清理文件，但不抛出错误
 			await this.cleanupFiles([...fileNames, outputFileName]);
 			throw error;
 		} finally {
 			this.isExecuting = false;
+			this.isAborting = false;
 		}
 	}
 
@@ -304,19 +312,21 @@ export class FFmpegService {
 	/**
 	 * 中止当前正在执行的任务
 	 */
-	async abort(): Promise<void> {
+	abort(): void {
 		if (!this.isExecuting) {
 			this.config.onLog?.("没有正在执行的任务");
 			return;
 		}
 
-		try {
-			this.config.onLog?.("正在中止任务...");
-			await this.terminate();
-			this.config.onLog?.("任务已中止");
-		} catch (error) {
-			console.error("中止任务失败:", error);
-			throw error;
+		this.config.onLog?.("正在中止当前任务...");
+		this.isAborting = true;
+
+		// 调用 terminate 强制结束 FFmpeg 进程
+		if (this.ffmpeg) {
+			this.ffmpeg.terminate();
+			this.ffmpeg = null;
+			this.loaded = false;
+			this.isExecuting = false;
 		}
 	}
 

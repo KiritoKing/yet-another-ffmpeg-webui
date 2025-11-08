@@ -9,15 +9,7 @@ import {
 } from "../components/FFmpegDialogs";
 import { FFmpegToolbar } from "../components/FFmpegToolbar";
 import { InitializationDialog } from "../components/InitializationDialog";
-import { QueueControlPanel } from "../components/QueueControlPanel";
-import { TaskHistoryViewer } from "../components/TaskHistoryViewer";
 import { Card } from "../components/ui/card";
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from "../components/ui/tabs";
 import { useFFmpegWeb } from "../hooks/useFFmpegWeb";
 import { useCommandStore } from "../store/commandStore";
 import { useFFmpegWebStore } from "../store/ffmpegWebStore";
@@ -85,9 +77,6 @@ export default function FFmpegWeb() {
 		computeDynamicOutputName,
 		taskManager,
 	} = useFFmpegWeb();
-
-	// 本地状态 - 活动标签页
-	const [activeTab, setActiveTab] = useState<string>("execute");
 
 	// 初始化分类筛选（全选）
 	// biome-ignore lint/correctness/useExhaustiveDependencies: setSelectedCategories 是稳定的 zustand setter
@@ -241,77 +230,57 @@ export default function FFmpegWeb() {
 							/>
 						</div>
 
-						{/* 右侧：标签页区域 */}
+						{/* 右侧：执行面板（整合了队列和历史） */}
 						<div className="lg:col-span-2">
-							<Tabs value={activeTab} onValueChange={setActiveTab}>
-								<TabsList className="grid w-full grid-cols-3">
-									<TabsTrigger value="execute">执行</TabsTrigger>
-									<TabsTrigger value="queue">队列</TabsTrigger>
-									<TabsTrigger value="history">历史</TabsTrigger>
-								</TabsList>
-
-								{/* 执行面板 */}
-								<TabsContent value="execute">
-									<ExecutionPanel
-										selectedPreset={selectedPreset}
-										formValues={formValues}
-										processing={processing}
-										progress={progress}
-										currentStep={currentStep}
-										outputUrl={outputUrl}
-										copiedCommand={copiedCommand}
-										onFormChange={setFormValues}
-										onExecute={executeCommand}
-										onAbort={handleAbortTask}
-										onCopyCommand={handleCopyCommand}
-										onDownload={handleDownload}
-										computeOutputName={computeDynamicOutputName}
-									/>
-								</TabsContent>
-
-								{/* 队列控制面板 */}
-								<TabsContent value="queue">
-									<QueueControlPanel
-										queue={taskManager.queue}
-										executingTasks={taskManager.executingTasks}
-										completedTasks={taskManager.recentCompletedTasks}
-										isProcessing={taskManager.isProcessingQueue}
-										batchSize={taskManager.queueConfig.batchSize}
-										initialQueueSize={taskManager.initialQueueSize}
-										onStart={taskManager.startQueue}
-										onStop={taskManager.stopQueue}
-										onClear={taskManager.clearQueue}
-										onRemoveTask={taskManager.removeFromQueue}
-										onBatchSizeChange={(size) =>
-											taskManager.setQueueConfig({ batchSize: size })
+							<ExecutionPanel
+								// 命令相关
+								selectedPreset={selectedPreset}
+								formValues={formValues}
+								copiedCommand={copiedCommand}
+								onFormChange={setFormValues}
+								onCopyCommand={handleCopyCommand}
+								computeOutputName={computeDynamicOutputName}
+								// 执行控制
+								processing={processing}
+								progress={progress}
+								currentStep={currentStep}
+								outputUrl={outputUrl}
+								onExecute={executeCommand}
+								onDownload={handleDownload}
+								// 队列相关
+								queue={taskManager.queue}
+								executingTasks={taskManager.executingTasks}
+								completedTasks={taskManager.recentCompletedTasks}
+								isProcessingQueue={taskManager.isProcessingQueue}
+								batchSize={taskManager.queueConfig.batchSize}
+								initialQueueSize={taskManager.initialQueueSize}
+								onStartQueue={taskManager.startQueue}
+								onStopQueue={taskManager.stopQueue}
+								onClearQueue={taskManager.clearQueue}
+								onRemoveTask={taskManager.removeFromQueue}
+								onBatchSizeChange={(size: number) =>
+									taskManager.setQueueConfig({ batchSize: size })
+								}
+								getTaskResultUrl={(taskId: string) =>
+									taskManager.getTaskResult(taskId)
+								}
+								onDownloadResult={(taskId: string) => {
+									const blobUrl = taskManager.getTaskResult(taskId);
+									if (blobUrl) {
+										const task = taskManager.recentCompletedTasks.find(
+											(t) => t.id === taskId,
+										);
+										if (task) {
+											const a = document.createElement("a");
+											a.href = blobUrl;
+											a.download = task.outputFileName;
+											document.body.appendChild(a);
+											a.click();
+											document.body.removeChild(a);
 										}
-										getTaskResultUrl={(taskId) =>
-											taskManager.getTaskResult(taskId)
-										}
-										onDownloadResult={(taskId) => {
-											const blobUrl = taskManager.getTaskResult(taskId);
-											if (blobUrl) {
-												const task = taskManager.recentCompletedTasks.find(
-													(t) => t.id === taskId,
-												);
-												if (task) {
-													const a = document.createElement("a");
-													a.href = blobUrl;
-													a.download = task.outputFileName;
-													document.body.appendChild(a);
-													a.click();
-													document.body.removeChild(a);
-												}
-											}
-										}}
-									/>
-								</TabsContent>
-
-								{/* 任务历史查看器 */}
-								<TabsContent value="history">
-									<TaskHistoryViewer />
-								</TabsContent>
-							</Tabs>
+									}
+								}}
+							/>
 						</div>
 					</div>
 				) : (
