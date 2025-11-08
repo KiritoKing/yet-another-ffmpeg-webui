@@ -71,9 +71,10 @@ ffmpeg-easy/
 ├── Dockerfile             # Docker 容器配置
 ├── package.json           # 项目依赖配置
 ├── pnpm-lock.yaml         # pnpm 锁文件
-├── react-router.config.ts # React Router 配置
+├── react-router.config.ts # React Router 配置（CSR 模式）
 ├── tsconfig.json          # TypeScript 配置
-├── vite.config.ts         # Vite 构建配置（包含 CORS 头配置）
+├── vite.config.ts         # Vite 构建配置
+├── vite-plugin-headers.ts # 自定义 Vite 插件（HTTP headers）
 ├── AGENTS.md              # AI 协作开发文档
 ├── API.md                 # FFmpegService API 文档
 ├── CUSTOM_FORMS.md        # 自定义表单功能文档
@@ -194,7 +195,11 @@ pnpm start
    ```typescript
    "Cross-Origin-Opener-Policy": "same-origin"
    "Cross-Origin-Embedder-Policy": "require-corp"
+   "Cross-Origin-Resource-Policy": "cross-origin"
    ```
+   - **CSR 模式**: 使用 `vite-plugin-headers.ts` 自定义插件通过中间件设置 headers
+   - **SSR 模式**: 在 `root.tsx` 的 `headers()` 函数中设置
+   - **生产部署**: 在 `vercel.json` / `_headers` / `netlify.toml` 等配置文件中设置
 3. **内存限制**: WebAssembly 有内存限制，建议：
    - 使用 `-c copy` 模式避免重新编码
    - 限制视频文件大小（< 500MB）

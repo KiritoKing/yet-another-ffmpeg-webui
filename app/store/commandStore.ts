@@ -656,8 +656,8 @@ export const useCommandStore = create<CommandStore>()(
 				const normalizedPresets = migrated.map((raw) => {
 					const presetRecord = raw as Record<string, unknown>;
 					const rawCategory =
-						typeof presetRecord["category"] === "string"
-							? (presetRecord["category"] as string)
+						typeof presetRecord.category === "string"
+							? (presetRecord.category as string)
 							: undefined;
 					return {
 						...(presetRecord as unknown as CommandPreset),
