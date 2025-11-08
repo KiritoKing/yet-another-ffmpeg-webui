@@ -281,6 +281,38 @@ docker run -p 3000:3000 ffmpeg-easy
 
 ## 更新日志
 
+### 2025-11-09 (v4.2)
+- **CSR 模式下多线程支持修复** 🔧
+  - **问题**: 禁用 SSR 后，开发服务器的多线程模式（SharedArrayBuffer）不可用
+  - **根本原因**: 
+    - React Router CSR 模式下不执行 `root.tsx` 的服务端代码
+    - `vite.config.ts` 中的 `server.headers` 配置在某些情况下不会正确应用
+  - **解决方案**:
+    - 创建自定义 Vite 插件 `vite-plugin-headers.ts`
+    - 使用中间件直接设置 HTTP headers（更可靠）
+    - 同时支持开发和预览模式
+  - **修改文件**:
+    - 新增 `vite-plugin-headers.ts`: 自定义插件，通过中间件设置 headers
+    - 更新 `vite.config.ts`: 
+      - 导入并使用 `headersPlugin()`
+      - 添加 `preview.headers` 配置
+      - 移除 `server.middlewareMode` 配置
+    - 新增 `public/check-headers.html`: SharedArrayBuffer 检测页面
+  - **关键 Headers**:
+    ```
+    Cross-Origin-Opener-Policy: same-origin
+    Cross-Origin-Embedder-Policy: require-corp
+    Cross-Origin-Resource-Policy: cross-origin
+    ```
+  - **测试验证**:
+    - ✅ `crossOriginIsolated = true`
+    - ✅ `SharedArrayBuffer` 可用
+    - ✅ FFmpeg 多线程模式正常工作
+  - **技术要点**:
+    - 中间件方式比配置项更可靠
+    - 插件执行顺序很重要（放在最前面）
+    - CSR 模式下必须通过 Vite 插件设置 headers
+
 ### 2025-11-08 (v4.1)
 - **任务中止问题修复** 🔧
   - **问题**: 中止任务后重新提交会报错 "FFmpeg 未加载"

@@ -2,26 +2,11 @@ import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
+import { headersPlugin } from "./vite-plugin-headers";
 
 export default defineConfig({
-	plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
+	plugins: [headersPlugin(), tailwindcss(), reactRouter(), tsconfigPaths()],
 	optimizeDeps: {
 		exclude: ["@ffmpeg/ffmpeg", "@ffmpeg/util"],
-	},
-	server: {
-		headers: {
-			"Cross-Origin-Opener-Policy": "same-origin",
-			"Cross-Origin-Embedder-Policy": "require-corp",
-			"Cross-Origin-Resource-Policy": "cross-origin",
-		},
-		// 确保中间件正确应用 headers
-		middlewareMode: false,
-	},
-	preview: {
-		headers: {
-			"Cross-Origin-Opener-Policy": "same-origin",
-			"Cross-Origin-Embedder-Policy": "require-corp",
-			"Cross-Origin-Resource-Policy": "cross-origin",
-		},
 	},
 });
