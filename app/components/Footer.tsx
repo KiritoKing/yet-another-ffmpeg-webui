@@ -28,7 +28,11 @@ export function Footer() {
 
 						<div className="h-4 w-px bg-border hidden sm:block" />
 
-						<Button variant="link" className="p-0 h-auto text-sm text-muted-foreground hover:text-foreground" asChild>
+						<Button
+							variant="link"
+							className="p-0 h-auto text-sm text-muted-foreground hover:text-foreground"
+							asChild
+						>
 							<a
 								href="https://github.com/KiritoKing/yet-another-ffmpeg-webui"
 								target="_blank"

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { CDNSelector } from "../components/CDNSelector";
 import { CLIImportDialog } from "../components/CLIImportDialog";
 import { CommandPanel } from "../components/CommandPanel";
 import { EditorDialog } from "../components/EditorDialog";
@@ -10,10 +11,9 @@ import { ResetConfirmDialog } from "../components/ResetConfirmDialog";
 import { SettingsDialog } from "../components/SettingsDialog";
 import { Card } from "../components/ui/card";
 import { useFFmpegWeb } from "../hooks/useFFmpegWeb";
+import { useCDNStore } from "../store/cdn";
 import { useCommandStore } from "../store/command";
 import { useFFmpegWebStore } from "../store/ffmpegWeb";
-import { useCDNStore } from "../store/cdn";
-import { CDNSelector } from "../components/CDNSelector";
 import type { CommandPreset } from "../types/command";
 
 /**
@@ -308,19 +308,19 @@ export default function FFmpegWeb() {
 								<li>
 									当前模式：{cdnConfig.autoSelect ? "自动选择" : "手动选择"}
 								</li>
-								<li>
-									当前提供商：{bestProvider?.name || "尚未确定"}
-								</li>
+								<li>当前提供商：{bestProvider?.name || "尚未确定"}</li>
 								<li>FFmpeg 版本：v{cdnConfig.ffmpegVersion}</li>
 							</ul>
 							<div className="flex flex-wrap gap-3">
 								<button
+									type="button"
 									onClick={() => setShowCDNSelector(true)}
 									className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm hover:bg-muted transition-colors"
 								>
 									打开 CDN 配置
 								</button>
 								<button
+									type="button"
 									onClick={() => setShowSettings(true)}
 									className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm hover:bg-muted transition-colors"
 								>
@@ -381,10 +381,7 @@ export default function FFmpegWeb() {
 			<Footer />
 
 			{/* CDN Selector 快速入口 */}
-			<CDNSelector
-				open={showCDNSelector}
-				onOpenChange={setShowCDNSelector}
-			/>
+			<CDNSelector open={showCDNSelector} onOpenChange={setShowCDNSelector} />
 		</div>
 	);
 }

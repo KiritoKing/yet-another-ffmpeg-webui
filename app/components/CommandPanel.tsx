@@ -1,11 +1,24 @@
-import { CodeIcon, DownloadIcon, ListOrdered, MoreHorizontal, PlusIcon, Search, UploadIcon } from "lucide-react";
+import {
+	CodeIcon,
+	DownloadIcon,
+	ListOrdered,
+	MoreHorizontal,
+	PlusIcon,
+	Search,
+	UploadIcon,
+} from "lucide-react";
 import { useState } from "react";
 import type { CommandPreset } from "../types/command";
 import { CommandBatchManager } from "./CommandBatchManager";
 import { CommandList } from "./CommandList";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import { Input } from "./ui/input";
 
 interface CommandPanelProps {

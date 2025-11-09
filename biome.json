@@ -7,7 +7,13 @@
 	},
 	"files": {
 		"ignoreUnknown": true,
-		"includes": ["./*.json, ./*.ts, ./*.js, ./app/**/*.ts, ./app/**/*.tsx"]
+		"includes": [
+			"./*.json",
+			"./*.ts",
+			"./*.js",
+			"./app/**/*.ts",
+			"./app/**/*.tsx"
+		]
 	},
 	"formatter": {
 		"enabled": true,

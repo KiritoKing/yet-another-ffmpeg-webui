@@ -513,7 +513,9 @@ export function SettingsDialog({
 										{/* Logo */}
 										<div className="flex justify-center">
 											<div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-												<span className="text-white text-3xl font-bold">FF</span>
+												<span className="text-white text-3xl font-bold">
+													FF
+												</span>
 											</div>
 										</div>
 

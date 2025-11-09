@@ -189,8 +189,14 @@ export function useFFmpegWeb() {
 						);
 					}
 				},
+				onModeChange: (newMode) => {
+					// 降级时同步更新 UI 状态
+					if (newMode === "single" && useMultiThread) {
+						setUseMultiThread(false);
+						addLog("UI 状态已同步：切换为单线程模式", "info");
+					}
+				},
 			});
-
 			await service.load();
 			ffmpegServiceRef.current = service;
 			setLoaded(true);

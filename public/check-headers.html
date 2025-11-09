@@ -1,0 +1,69 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>SharedArrayBuffer & Headers Check</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, "Apple Color Emoji", "Segoe UI Emoji"; padding: 24px; line-height: 1.6; }
+      code { background: #f6f8fa; padding: 2px 6px; border-radius: 4px; }
+      .ok { color: #0a7f2e; font-weight: 600; }
+      .bad { color: #c2410c; font-weight: 600; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      table { border-collapse: collapse; }
+      td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+    </style>
+  </head>
+  <body>
+    <h1>Headers & Environment Check</h1>
+    <p>用于检查多线程（SharedArrayBuffer）所需的隔离环境是否就绪。</p>
+
+    <table>
+      <tr><td>SharedArrayBuffer</td><td id="sab" class="mono"></td></tr>
+      <tr><td>crossOriginIsolated</td><td id="coi" class="mono"></td></tr>
+      <tr><td>COOP</td><td id="coop" class="mono"></td></tr>
+      <tr><td>COEP</td><td id="coep" class="mono"></td></tr>
+      <tr><td>CORP</td><td id="corp" class="mono"></td></tr>
+    </table>
+
+    <h2>建议</h2>
+    <ul>
+      <li>确保响应头包含：
+        <ul>
+          <li><code>Cross-Origin-Opener-Policy: same-origin</code></li>
+          <li><code>Cross-Origin-Embedder-Policy: require-corp</code></li>
+          <li><code>Cross-Origin-Resource-Policy: cross-origin</code></li>
+        </ul>
+      </li>
+      <li>开发模式下，Vite 已通过插件自动设置（vite-plugin-headers.ts）。</li>
+      <li>生产环境请在平台配置 <code>_headers</code> 或 <code>vercel.json</code> 等。</li>
+    </ul>
+
+    <script>
+      const sab = typeof SharedArrayBuffer !== 'undefined';
+      const coi = 'crossOriginIsolated' in globalThis && globalThis.crossOriginIsolated === true;
+
+      document.getElementById('sab').textContent = sab ? 'available' : 'unavailable';
+      document.getElementById('sab').className = sab ? 'ok mono' : 'bad mono';
+      document.getElementById('coi').textContent = coi ? 'true' : 'false';
+      document.getElementById('coi').className = coi ? 'ok mono' : 'bad mono';
+
+      // Fetch the current document to inspect response headers (works in some servers)
+      fetch(location.href, { method: 'GET', cache: 'no-cache' })
+        .then(res => {
+          // Some servers don't expose these headers to JS; still try to read
+          const coop = res.headers.get('Cross-Origin-Opener-Policy');
+          const coep = res.headers.get('Cross-Origin-Embedder-Policy');
+          const corp = res.headers.get('Cross-Origin-Resource-Policy');
+          document.getElementById('coop').textContent = coop || '(not exposed)';
+          document.getElementById('coep').textContent = coep || '(not exposed)';
+          document.getElementById('corp').textContent = corp || '(not exposed)';
+        })
+        .catch(() => {
+          document.getElementById('coop').textContent = '(fetch failed)';
+          document.getElementById('coep').textContent = '(fetch failed)';
+          document.getElementById('corp').textContent = '(fetch failed)';
+        });
+    </script>
+  </body>
+</html>

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { FFmpegService } from "../../services/ffmpegService";
 import type { FFmpegWebState } from "./types";
 
 /**
@@ -13,7 +14,8 @@ export const useFFmpegWebStore = create<FFmpegWebState>()(
 			isClient: false,
 			loaded: false,
 			loading: false,
-			useMultiThread: typeof SharedArrayBuffer !== "undefined",
+			// 初始化时基于更严格的检测（需 crossOriginIsolated=true）决定默认多线程偏好
+			useMultiThread: FFmpegService.isMultiThreadSupported(),
 			showInitDialog: false,
 			savedMode: null,
 

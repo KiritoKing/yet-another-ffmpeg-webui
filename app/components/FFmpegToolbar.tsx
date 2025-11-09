@@ -1,10 +1,10 @@
 import {
+	Activity,
 	CpuIcon,
 	Loader2Icon,
 	PlayIcon,
 	RefreshCwIcon,
 	SettingsIcon,
-	Activity,
 } from "lucide-react";
 import { useCDNStore } from "../store/cdn";
 import { Badge } from "./ui/badge";

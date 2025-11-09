@@ -8,6 +8,7 @@ export interface FFmpegConfig {
 	mode: FFmpegMode;
 	onLog?: (message: string) => void;
 	onProgress?: (progress: number, time: number) => void;
+	onModeChange?: (newMode: FFmpegMode) => void; // 模式变更回调（用于降级通知）
 	cdnProvider?: CDNProvider; // 可选的 CDN 配置
 }
 
@@ -41,7 +42,15 @@ export class FFmpegService {
 	 * 检查是否支持多线程模式
 	 */
 	static isMultiThreadSupported(): boolean {
-		return typeof SharedArrayBuffer !== "undefined";
+		// 更严格的检测：需要同时存在 SharedArrayBuffer 且页面处于 crossOriginIsolated
+		// 某些浏览器 / 构建场景下仅检测 SAB 可能导致误判，从而在非隔离上下文中触发 LinkError 再降级
+		// 参考: https://developer.mozilla.org/en-US/docs/Web/API/crossOriginIsolated
+		return (
+			typeof SharedArrayBuffer !== "undefined" &&
+			"crossOriginIsolated" in globalThis &&
+			// biome-ignore lint/suspicious/noExplicitAny: 访问浏览器全局属性
+			(globalThis as any).crossOriginIsolated === true
+		);
 	}
 
 	/**
@@ -71,7 +80,10 @@ export class FFmpegService {
 		const preflightOk = await this.preflightCheck({
 			mode: this.config.mode,
 			coreURL: `${baseURL}/ffmpeg-core.js`,
-			wasmURL: `${this.config.mode === "multi" ? baseCoreURL : baseURL}/ffmpeg-core.wasm`,
+			// 注意：core-mt 不包含 wasm，wasm 始终来自 core 包
+			wasmURL: `${
+				this.config.mode === "multi" ? baseCoreURL : baseURL
+			}/ffmpeg-core.wasm`,
 			workerURL:
 				this.config.mode === "multi"
 					? `${baseMtURL}/ffmpeg-core.worker.js`
@@ -84,9 +96,7 @@ export class FFmpegService {
 
 		if (!preflightOk) {
 			// 如果本地或自定义源不可用，回退到 jsDelivr
-			this.config.onLog?.(
-				"预检失败，回退到 jsDelivr CDN 加载 FFmpeg 资源",
-			);
+			this.config.onLog?.("预检失败，回退到 jsDelivr CDN 加载 FFmpeg 资源");
 			effectiveBaseURL = this.getCDNBaseURLFor(this.config.mode);
 			effectiveCoreBaseURL = this.getCDNBaseURLFor("single");
 			effectiveMtBaseURL = this.getCDNBaseURLFor("multi");
@@ -117,9 +127,9 @@ export class FFmpegService {
 				`${effectiveBaseURL}/ffmpeg-core.js`,
 				"text/javascript",
 			),
-			// 多线程模式下，wasm 来自 core（单线程包）路径；单线程模式下来自当前 base
+			// 注意：core-mt 不包含 wasm，wasm 始终来自 core 包
 			wasmURL: await toBlobURL(
-				`${
+				`$${
 					this.config.mode === "multi" ? effectiveCoreBaseURL : effectiveBaseURL
 				}/ffmpeg-core.wasm`,
 				"application/wasm",
@@ -134,7 +144,25 @@ export class FFmpegService {
 			);
 		}
 
+		// 额外的调试日志，便于问题定位
+		this.config.onLog?.(
+			`[FFmpegService] 准备加载(${this.config.mode}) coreURL=${loadConfig.coreURL} wasmURL=${loadConfig.wasmURL} workerURL=${loadConfig.workerURL ?? "(none)"}`,
+		);
+
 		try {
+			// 在尝试加载多线程版本前再次校验 crossOriginIsolated，给予清晰提示
+			if (
+				this.config.mode === "multi" &&
+				!(
+					"crossOriginIsolated" in globalThis &&
+					// biome-ignore lint/suspicious/noExplicitAny: 访问浏览器全局属性
+					(globalThis as any).crossOriginIsolated === true
+				)
+			) {
+				throw new Error(
+					"检测到页面未处于 crossOriginIsolated（缺少 COOP/COEP 头），无法使用多线程 FFmpeg。",
+				);
+			}
 			await this.ffmpeg.load(loadConfig);
 			this.loaded = true;
 			return;
@@ -145,7 +173,7 @@ export class FFmpegService {
 				/LinkError|WebAssembly\.instantiate|requires a callable/i.test(errMsg);
 			if (this.config.mode === "multi" && maybeWasmLinkError) {
 				this.config.onLog?.(
-					`多线程加载失败(${errMsg})，尝试自动降级为单线程...`,
+					`多线程加载失败 (${errMsg})。将尝试自动降级到单线程。可能原因: 1) 资源路径不匹配 2) 缺少 COOP/COEP 头 3) 浏览器禁用了 SharedArrayBuffer。`,
 				);
 
 				// 尝试单线程回退
@@ -153,7 +181,9 @@ export class FFmpegService {
 					// 重新实例化，避免残留状态
 					this.ffmpeg = new FFmpeg();
 					if (this.config.onLog) {
-						this.ffmpeg.on("log", ({ message }) => this.config.onLog?.(message));
+						this.ffmpeg.on("log", ({ message }) =>
+							this.config.onLog?.(message),
+						);
 					}
 					if (this.config.onProgress) {
 						this.ffmpeg.on("progress", ({ progress, time }) =>
@@ -186,6 +216,8 @@ export class FFmpegService {
 					// 更新内部模式为单线程，避免后续逻辑误判
 					this.config = { ...this.config, mode: "single" };
 					this.config.onLog?.("已降级为单线程模式并成功加载");
+					// 通知外部模式已变更
+					this.config.onModeChange?.("single");
 					return;
 				} catch (e2) {
 					const em2 = e2 instanceof Error ? e2.message : String(e2);
@@ -258,7 +290,10 @@ export class FFmpegService {
 		try {
 			const controller = new AbortController();
 			const t = setTimeout(() => controller.abort(), 4000);
-			const res = await fetch(url, { method: "HEAD", signal: controller.signal });
+			const res = await fetch(url, {
+				method: "HEAD",
+				signal: controller.signal,
+			});
 			clearTimeout(t);
 			return res.ok;
 		} catch {

@@ -47,6 +47,16 @@ export const useCDNStore = create<CDNState>()(
 					if (selected) return selected;
 				}
 
+				// 开发模式下优先使用本地资源，避免 COEP + 外链在 Vite dev 上的代理问题
+				if (
+					import.meta &&
+					(import.meta as any).env &&
+					(import.meta as any).env.DEV
+				) {
+					const local = providers.find((p) => p.id === "local");
+					if (local) return local;
+				}
+
 				// 如果开启了自动选择，选择延迟最低且可用的 CDN
 				if (config.autoSelect) {
 					const available = providers
