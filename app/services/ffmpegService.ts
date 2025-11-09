@@ -109,9 +109,6 @@ export class FFmpegService {
 	 * 获取 FFmpeg 资源的基础 URL
 	 */
 	private getBaseURL(): string {
-		const corePackage =
-			this.config.mode === "multi" ? "@ffmpeg/core-mt" : "@ffmpeg/core";
-
 		// 如果配置了 CDN provider，使用它
 		if (this.config.cdnProvider) {
 			const provider = this.config.cdnProvider;
@@ -123,11 +120,14 @@ export class FFmpegService {
 					: `${provider.baseUrl}/core@0.12.6/dist/esm`;
 			}
 
-			// 使用 CDN provider 的 baseUrl
+			// 使用 CDN provider 的 baseUrl (已包含 @ffmpeg 路径)
+			const corePackage = this.config.mode === "multi" ? "core-mt" : "core";
 			return `${provider.baseUrl}/${corePackage}@0.12.6/dist/esm`;
 		}
 
 		// 默认使用 jsDelivr（国内友好）
+		const corePackage =
+			this.config.mode === "multi" ? "@ffmpeg/core-mt" : "@ffmpeg/core";
 		return `https://cdn.jsdelivr.net/npm/${corePackage}@0.12.6/dist/esm`;
 	}
 

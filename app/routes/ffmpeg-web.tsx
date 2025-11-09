@@ -1,14 +1,12 @@
 import { useEffect, useRef } from "react";
+import { CLIImportDialog } from "../components/CLIImportDialog";
 import { CommandPanel } from "../components/CommandPanel";
+import { EditorDialog } from "../components/EditorDialog";
 import { ExecutionPanel } from "../components/ExecutionPanel";
-import {
-	CLIImportDialog,
-	EditorDialog,
-	ResetConfirmDialog,
-	SettingsDialog,
-} from "../components/FFmpegDialogs";
 import { FFmpegToolbar } from "../components/FFmpegToolbar";
 import { InitializationDialog } from "../components/InitializationDialog";
+import { ResetConfirmDialog } from "../components/ResetConfirmDialog";
+import { SettingsDialog } from "../components/SettingsDialog";
 import { Card } from "../components/ui/card";
 import { useFFmpegWeb } from "../hooks/useFFmpegWeb";
 import { useCommandStore } from "../store/command";
@@ -27,7 +25,6 @@ export default function FFmpegWeb() {
 		processing,
 		selectedPreset,
 		editingPreset,
-		formValues,
 		selectedCategories,
 		showEditor,
 		showCLIImport,
@@ -36,7 +33,6 @@ export default function FFmpegWeb() {
 		showInitDialog,
 		savedMode,
 		cliCommand,
-		copiedCommand,
 		setSelectedPreset,
 		setEditingPreset,
 		setSelectedCategories,
@@ -47,7 +43,6 @@ export default function FFmpegWeb() {
 		setShowInitDialog,
 		setSavedMode,
 		setCliCommand,
-		setFormValues,
 		setUseMultiThread,
 	} = useFFmpegWebStore();
 
@@ -336,7 +331,6 @@ export default function FFmpegWeb() {
 					setShowSettings(false);
 					setShowResetConfirm(true);
 				}}
-				onClose={() => setShowSettings(false)}
 			/>
 
 			<ResetConfirmDialog

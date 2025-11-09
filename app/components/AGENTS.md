@@ -29,11 +29,50 @@ shadcn/ui components based on Radix UI primitives. Do not modify these directly 
 
 #### Queue & Tasks
 - **QueueControlPanel**: Queue management UI
+
+#### Dialogs (Dialog Components)
+
+所有对话框组件均为独立文件，直接导入使用：
+
+- **EditorDialog.tsx**: 
+  - 命令预设编辑器对话框
+  - 支持新建/编辑/CLI导入完善
+  - 使用 CommandEditor 组件
+
+- **CLIImportDialog.tsx**: 
+  - CLI 命令导入对话框
+  - 多行文本输入，命令解析
+  - 简洁的导入界面
+
+- **SettingsDialog.tsx**: 
+  - 应用设置对话框（Notion 风格布局）
+  - 左侧导航栏 + 右侧内容区
+  - 5大分类：通用、性能、存储、CDN、关于
+  - 集成 CDNSelector 组件
+
+- **ResetConfirmDialog.tsx**: 
+  - 重置命令预设确认对话框
+  - AlertDialog 样式
+  - 二次确认防误操作
+
+- **CDNSelector.tsx**: 
+  - CDN 提供商选择和配置
+  - 自动选择最快 CDN
+  - 健康状态检查
+  - 自定义 URL 支持
+
+- **InitializationDialog.tsx**: 
+  - FFmpeg 加载模式选择
+  - 居中对话框
+  - 记住选择功能
 - **BatchFileUpload**: Multi-file upload component
 
 #### Settings & Dialogs
 - **FFmpegToolbar**: Top toolbar with actions
-- **FFmpegDialogs**: Collection of dialogs (Editor, CLI Import, Settings, Reset)
+- **EditorDialog**: Command preset editor dialog
+- **CLIImportDialog**: CLI command import dialog
+- **SettingsDialog**: Application settings (Notion-style layout)
+- **ResetConfirmDialog**: Reset confirmation dialog
 - **InitializationDialog**: Mode selection on first load
 - **CDNSelector**: CDN configuration dialog
 

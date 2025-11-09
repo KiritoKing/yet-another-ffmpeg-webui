@@ -8,6 +8,7 @@ import type {
  * CDN Service
  * 处理 CDN 健康检查、版本验证和 URL 生成
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: Service utilities using static methods
 export class CDNService {
 	/**
 	 * 检查 CDN 健康状态
@@ -17,9 +18,19 @@ export class CDNService {
 		const startTime = Date.now();
 
 		try {
+			// 本地资源跳过健康检查（假设总是可用）
+			if (provider.id === "local") {
+				return {
+					providerId: provider.id,
+					available: true,
+					latency: 0,
+					lastChecked: Date.now(),
+				};
+			}
+
 			// 使用 HEAD 请求检查 CDN 是否可用
 			// 检查 ffmpeg 包的 package.json（小文件，快速响应）
-			const url = `${provider.baseUrl}/ffmpeg@0.12.15/package.json`;
+			const url = `${provider.baseUrl}/core@0.12.6/package.json`;
 
 			const controller = new AbortController();
 			const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
@@ -74,8 +85,13 @@ export class CDNService {
 		provider: CDNProvider,
 		version: string,
 	): Promise<boolean> {
+		// 本地资源假设版本总是可用
+		if (provider.id === "local") {
+			return true;
+		}
+
 		try {
-			const url = `${provider.baseUrl}/ffmpeg@${version}/package.json`;
+			const url = `${provider.baseUrl}/core@${version}/package.json`;
 			const response = await fetch(url, {
 				method: "HEAD",
 				cache: "no-cache",
@@ -103,6 +119,8 @@ export class CDNService {
 
 	/**
 	 * 生成 FFmpeg 资源的完整 URL
+	 * @param provider CDN 提供商
+	 * @param version FFmpeg 版本（目前未使用，因为 core 版本固定为 0.12.6）
 	 */
 	static generateFFmpegUrls(
 		provider: CDNProvider,

@@ -20,6 +20,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "./ui/select";
+import { Switch } from "./ui/switch";
 
 interface CDNSelectorProps {
 	open: boolean;
@@ -152,18 +153,18 @@ export function CDNSelector({ open, onOpenChange }: CDNSelectorProps) {
 					<Card className="p-4">
 						<div className="flex items-center justify-between">
 							<div>
-								<Label>自动选择最快的 CDN</Label>
+								<Label htmlFor="auto-select">自动选择最快的 CDN</Label>
 								<p className="text-sm text-muted-foreground mt-1">
 									根据延迟自动选择最优 CDN
 								</p>
 							</div>
-							<Button
-								variant={config.autoSelect ? "default" : "outline"}
-								size="sm"
-								onClick={() => setConfig({ autoSelect: !config.autoSelect })}
-							>
-								{config.autoSelect ? "已开启" : "已关闭"}
-							</Button>
+							<Switch
+								id="auto-select"
+								checked={config.autoSelect}
+								onCheckedChange={(checked) =>
+									setConfig({ autoSelect: checked })
+								}
+							/>
 						</div>
 					</Card>
 
