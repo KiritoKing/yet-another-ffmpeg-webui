@@ -197,43 +197,32 @@ export class QueueProcessor {
 				"info",
 			);
 
-			// 从 ffmpegArgs 中提取文件名（已经是标准化后的名称）
-			// 假设第一个 -i 后面的参数是输入文件名
-			const inputFileNameInArgs =
-				task.ffmpegArgs[task.ffmpegArgs.indexOf("-i") + 1];
+			// 从 ffmpegArgs 中提取所有输入文件名（在 -i 参数后面）
+			const inputFileNamesInArgs: string[] = [];
+			for (let i = 0; i < task.ffmpegArgs.length - 1; i++) {
+				if (task.ffmpegArgs[i] === "-i") {
+					inputFileNamesInArgs.push(task.ffmpegArgs[i + 1]);
+				}
+			}
 
 			this.config.onLog?.(
-				`[调试] 从 ffmpegArgs 提取的文件名: ${inputFileNameInArgs}`,
+				`[调试] 从 ffmpegArgs 提取的文件名: ${inputFileNamesInArgs.join(", ")}`,
 				"info",
 			);
 
-			// 将文件和标准化后的名称关联
-			if (pendingFiles.length === 1 && inputFileNameInArgs) {
-				inputFilesList.push({
-					file: pendingFiles[0],
-					name: inputFileNameInArgs,
-				});
-			} else {
-				// 多文件情况：按顺序匹配
+			// 将文件和标准化后的名称关联（按顺序匹配）
+			if (pendingFiles.length === inputFileNamesInArgs.length) {
 				for (let i = 0; i < pendingFiles.length; i++) {
-					const argIndex = task.ffmpegArgs.findIndex(
-						(arg, idx) =>
-							arg === "-i" &&
-							idx >
-								(i === 0
-									? -1
-									: task.ffmpegArgs.lastIndexOf(
-											"-i",
-											task.ffmpegArgs.length - 1,
-										)),
-					);
-					if (argIndex !== -1) {
-						inputFilesList.push({
-							file: pendingFiles[i],
-							name: task.ffmpegArgs[argIndex + 1],
-						});
-					}
+					inputFilesList.push({
+						file: pendingFiles[i],
+						name: inputFileNamesInArgs[i],
+					});
 				}
+			} else {
+				// 数量不匹配时的错误处理
+				throw new Error(
+					`文件数量不匹配: 提取到 ${pendingFiles.length} 个文件，但命令中有 ${inputFileNamesInArgs.length} 个 -i 参数`,
+				);
 			}
 
 			this.config.onLog?.(

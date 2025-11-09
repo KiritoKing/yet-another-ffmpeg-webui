@@ -1,0 +1,185 @@
+import type {
+	CDNHealthStatus,
+	CDNProvider,
+	FFmpegVersionInfo,
+} from "../store/cdn/types";
+
+/**
+ * CDN Service
+ * 处理 CDN 健康检查、版本验证和 URL 生成
+ */
+// biome-ignore lint/complexity/noStaticOnlyClass: Service utilities using static methods
+export class CDNService {
+	/**
+	 * 检查 CDN 健康状态
+	 * 通过尝试下载一个小文件来测量延迟和可用性
+	 */
+	static async checkHealth(provider: CDNProvider): Promise<CDNHealthStatus> {
+		const startTime = Date.now();
+
+		try {
+			// 本地资源跳过健康检查（假设总是可用）
+			if (provider.id === "local") {
+				return {
+					providerId: provider.id,
+					available: true,
+					latency: 0,
+					lastChecked: Date.now(),
+				};
+			}
+
+			// 使用 HEAD 请求检查 CDN 是否可用
+			// 检查 ffmpeg 包的 package.json（小文件，快速响应）
+			const url = `${provider.baseUrl}/core@0.12.6/package.json`;
+
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
+
+			const response = await fetch(url, {
+				method: "HEAD",
+				signal: controller.signal,
+				cache: "no-cache",
+			});
+
+			clearTimeout(timeoutId);
+
+			const latency = Date.now() - startTime;
+			const available = response.ok;
+
+			return {
+				providerId: provider.id,
+				available,
+				latency,
+				lastChecked: Date.now(),
+				error: available ? undefined : `HTTP ${response.status}`,
+			};
+		} catch (error) {
+			const latency = Date.now() - startTime;
+			return {
+				providerId: provider.id,
+				available: false,
+				latency,
+				lastChecked: Date.now(),
+				error:
+					error instanceof Error ? error.message : "Unknown error occurred",
+			};
+		}
+	}
+
+	/**
+	 * 批量检查多个 CDN 的健康状态
+	 */
+	static async checkAllHealth(
+		providers: CDNProvider[],
+	): Promise<CDNHealthStatus[]> {
+		const checks = providers.map((provider) =>
+			CDNService.checkHealth(provider),
+		);
+		return Promise.all(checks);
+	}
+
+	/**
+	 * 验证指定版本的 FFmpeg 是否在 CDN 上可用
+	 */
+	static async validateVersion(
+		provider: CDNProvider,
+		version: string,
+	): Promise<boolean> {
+		// 本地资源假设版本总是可用
+		if (provider.id === "local") {
+			return true;
+		}
+
+		try {
+			const url = `${provider.baseUrl}/core@${version}/package.json`;
+			const response = await fetch(url, {
+				method: "HEAD",
+				cache: "no-cache",
+			});
+			return response.ok;
+		} catch {
+			return false;
+		}
+	}
+
+	/**
+	 * 获取可用的 FFmpeg 版本列表
+	 * 注意：这个功能可能需要 CDN 支持 API 或者维护一个已知版本列表
+	 */
+	static getKnownVersions(): string[] {
+		return [
+			"0.12.15", // latest
+			"0.12.14",
+			"0.12.13",
+			"0.12.12",
+			"0.12.11",
+			"0.12.10",
+		];
+	}
+
+	/**
+	 * 生成 FFmpeg 资源的完整 URL
+	 * @param provider CDN 提供商
+	 * @param version FFmpeg 版本（目前未使用，因为 core 版本固定为 0.12.6）
+	 */
+	static generateFFmpegUrls(
+		provider: CDNProvider,
+		version: string,
+	): FFmpegVersionInfo {
+		const baseUrl = provider.baseUrl;
+
+		// 根据 CDN 类型生成不同的 URL 格式
+		if (provider.id === "local" || baseUrl.startsWith("/")) {
+			// 本地静态资源路径与 CDN 不同，版本位于 "@<version>" 子目录中
+			// public/core/@0.12.6/dist/esm/...
+			// public/core-mt/@0.12.6/dist/esm/...
+			// 直接使用站点根路径，避免叠加 baseUrl（如 /ffmpeg）导致 404。
+			return {
+				version,
+				coreUrl: `/core/@0.12.6/dist/esm/ffmpeg-core.js`,
+				coreWasmUrl: `/core/@0.12.6/dist/esm/ffmpeg-core.wasm`,
+				wasmUrl: `/core-mt/@0.12.6/dist/esm/ffmpeg-core.js`,
+				workerUrl: `/core-mt/@0.12.6/dist/esm/ffmpeg-core.worker.js`,
+			};
+		}
+
+		// unpkg 和 jsdelivr 使用标准格式
+		return {
+			version,
+			coreUrl: `${baseUrl}/core@0.12.6/dist/esm/ffmpeg-core.js`,
+			coreWasmUrl: `${baseUrl}/core@0.12.6/dist/esm/ffmpeg-core.wasm`,
+			wasmUrl: `${baseUrl}/core-mt@0.12.6/dist/esm/ffmpeg-core.js`,
+			workerUrl: `${baseUrl}/core-mt@0.12.6/dist/esm/ffmpeg-core.worker.js`,
+		};
+	}
+
+	/**
+	 * 验证自定义 CDN URL 的格式
+	 */
+	static validateCustomUrl(url: string): boolean {
+		try {
+			const parsed = new URL(url);
+			// 必须是 http 或 https 协议
+			if (!["http:", "https:"].includes(parsed.protocol)) {
+				return false;
+			}
+			// URL 应该以 @ffmpeg 或 ffmpeg 结尾（宽松验证）
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	/**
+	 * 从自定义 URL 创建 CDN Provider
+	 */
+	static createCustomProvider(url: string): CDNProvider {
+		return {
+			id: "custom",
+			name: "自定义 CDN",
+			baseUrl: url,
+			description: "用户自定义的 CDN 地址",
+			priority: 0, // 最高优先级
+		};
+	}
+}

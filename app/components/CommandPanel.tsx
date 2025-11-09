@@ -1,10 +1,11 @@
-import { ListOrdered, Search } from "lucide-react";
+import { CodeIcon, DownloadIcon, ListOrdered, MoreHorizontal, PlusIcon, Search, UploadIcon } from "lucide-react";
 import { useState } from "react";
 import type { CommandPreset } from "../types/command";
 import { CommandBatchManager } from "./CommandBatchManager";
 import { CommandList } from "./CommandList";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { Input } from "./ui/input";
 
 interface CommandPanelProps {
@@ -20,6 +21,10 @@ interface CommandPanelProps {
 	onReorderCategories: (categories: string[]) => void;
 	onUpdateCategory: (id: string, category: string) => void;
 	onBatchDelete: (ids: string[]) => void;
+	onShowCLIImport: () => void;
+	onImportJSON: () => void;
+	onExportAll: () => void;
+	onNewPreset: () => void;
 }
 
 /**
@@ -39,6 +44,10 @@ export function CommandPanel({
 	onReorderCategories,
 	onUpdateCategory,
 	onBatchDelete,
+	onShowCLIImport,
+	onImportJSON,
+	onExportAll,
+	onNewPreset,
 }: CommandPanelProps) {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [showBatchManager, setShowBatchManager] = useState(false);
@@ -49,15 +58,42 @@ export function CommandPanel({
 				<div className="px-4 py-3 border-b space-y-3">
 					<div className="flex items-center justify-between">
 						<h2 className="text-sm font-semibold">命令预设</h2>
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => setShowBatchManager(true)}
-							className="h-8"
-						>
-							<ListOrdered className="h-3.5 w-3.5 mr-1.5" />
-							批量管理
-						</Button>
+						<div className="flex items-center gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setShowBatchManager(true)}
+								className="h-8"
+							>
+								<ListOrdered className="h-3.5 w-3.5 mr-1.5" />
+								批量管理
+							</Button>
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<Button variant="outline" size="sm" className="h-8 px-2">
+										<MoreHorizontal className="h-4 w-4" />
+									</Button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="end" className="w-48">
+									<DropdownMenuItem onClick={onNewPreset}>
+										<PlusIcon className="h-4 w-4 mr-2" />
+										新建预设
+									</DropdownMenuItem>
+									<DropdownMenuItem onClick={onShowCLIImport}>
+										<CodeIcon className="h-4 w-4 mr-2" />
+										CLI 导入
+									</DropdownMenuItem>
+									<DropdownMenuItem onClick={onImportJSON}>
+										<UploadIcon className="h-4 w-4 mr-2" />
+										导入文件
+									</DropdownMenuItem>
+									<DropdownMenuItem onClick={onExportAll}>
+										<DownloadIcon className="h-4 w-4 mr-2" />
+										导出全部
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
+						</div>
 					</div>
 					{/* 搜索框 */}
 					<div className="relative">

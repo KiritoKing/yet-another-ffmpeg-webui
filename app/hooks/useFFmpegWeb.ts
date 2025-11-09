@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { type FFmpegMode, FFmpegService } from "../services/ffmpegService";
-import { useCommandStore } from "../store/commandStore";
-import { useFFmpegWebStore } from "../store/ffmpegWebStore";
-import { useLogStore } from "../store/logStore";
+import { useCDNStore } from "../store/cdn";
+import { useCommandStore } from "../store/command";
+import { useFFmpegWebStore } from "../store/ffmpegWeb";
+import { useLogStore } from "../store/log";
 import type { CommandPreset } from "../types/command";
 import {
 	downloadJSON,
@@ -81,6 +82,9 @@ export function useFFmpegWeb() {
 		resetToDefaults,
 	} = useCommandStore();
 
+	// CDN 配置
+	const { getBestProvider } = useCDNStore();
+
 	// 初始化任务管理器
 	const taskManager = useTaskManager(ffmpegServiceRef);
 
@@ -145,6 +149,12 @@ export function useFFmpegWeb() {
 
 		const mode: FFmpegMode = useMultiThread ? "multi" : "single";
 
+		// 获取最佳 CDN provider
+		const cdnProvider = getBestProvider();
+		if (cdnProvider) {
+			addLog(`使用 CDN: ${cdnProvider.name}`, "info");
+		}
+
 		try {
 			setLoading(true);
 			setCurrentStep("正在加载 FFmpeg...");
@@ -156,6 +166,7 @@ export function useFFmpegWeb() {
 
 			const service = new FFmpegService({
 				mode,
+				cdnProvider: cdnProvider || undefined,
 				onLog: (message) => {
 					console.log(message);
 					addLog(message, "info");

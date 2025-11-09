@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useLogStore } from "../store/logStore";
+import { useLogStore } from "../store/log";
 import type { LogEntry } from "../types/log";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";

@@ -1,5 +1,22 @@
 # AGENTS.md
 
+## 📚 Module-Specific Documentation
+
+For detailed documentation on specific modules, see:
+- **[Components](./app/components/AGENTS.md)** - Component patterns, props vs hooks, styling
+- **[Services](./app/services/AGENTS.md)** - Service architecture, FFmpeg integration, async patterns
+- **[Store](./app/store/AGENTS.md)** - State management, store structure, persistence
+
+## 📖 Complete Documentation
+
+All project documentation is now organized in the [`docs/`](./docs/) directory:
+- **[User Guide](./docs/user-guide/)** - For end users
+- **[Developer Guide](./docs/dev-guide/)** - For developers
+- **[Changelog](./docs/changelog/)** - Historical changes
+- **[Blog](./docs/blog/)** - Articles and deep-dives
+
+---
+
 ## 项目概述
 
 **项目名称**: ffmpeg-easy  
@@ -32,6 +49,8 @@ ffmpeg-easy/
 │   │   ├── QueueControlPanel.tsx # 队列控制面板（批处理）
 │   │   ├── TaskHistoryViewer.tsx # 任务历史查看器
 │   │   ├── BatchFileUpload.tsx # 批量文件上传组件
+│   │   ├── CDNSelector.tsx     # CDN 配置选择器
+│   │   ├── AGENTS.md           # Components 架构文档
 │   │   └── ui/            # shadcn/ui 组件库
 │   ├── lib/               # 工具库
 │   │   └── utils.ts       # cn() 等工具函数
@@ -42,12 +61,31 @@ ffmpeg-easy/
 │   │   ├── home.tsx       # 首页（重定向到 ffmpeg-web）
 │   │   └── ffmpeg-web.tsx # FFmpeg Web 主界面（重构后）
 │   ├── services/          # 业务服务层
-│   │   ├── ffmpegService.ts    # FFmpeg 核心服务封装
-│   │   ├── ffmpegPool.ts       # FFmpeg 实例池（多线程）
-│   │   ├── queueProcessor.ts   # 队列处理器
-│   │   └── taskDatabase.ts     # IndexedDB 任务持久化
+│   │   │   ├── ffmpegService.ts    # FFmpeg 核心服务封装
+│   │   │   ├── ffmpegPool.ts       # FFmpeg 实例池（多线程）
+│   │   │   ├── queueProcessor.ts   # 队列处理器
+│   │   │   ├── taskDatabase.ts     # IndexedDB 任务持久化
+│   │   │   ├── cdnService.ts       # CDN 健康检查和 URL 生成
+│   │   │   └── AGENTS.md           # Services 架构文档
 │   ├── store/             # 全局状态管理（Zustand）
-│   │   ├── commandStore.ts # 命令预设状态管理（持久化）
+│   │   ├── command/      # 命令预设状态管理（持久化）
+│   │   │   ├── types.ts         # 类型定义
+│   │   │   ├── index.ts         # Store 实现
+│   │   │   └── default-values.ts # 默认预设
+│   │   ├── ffmpegWeb/    # FFmpeg Web 页面状态管理
+│   │   │   ├── types.ts
+│   │   │   └── index.ts
+│   │   ├── log/          # 日志状态管理
+│   │   │   ├── types.ts
+│   │   │   └── index.ts
+│   │   ├── task/         # 任务队列状态管理
+│   │   │   ├── types.ts
+│   │   │   └── index.ts
+│   │   ├── cdn/          # CDN 配置状态管理
+│   │   │   ├── types.ts
+│   │   │   ├── index.ts
+│   │   │   └── default-values.ts
+│   │   └── AGENTS.md     # Store 架构文档
 │   │   ├── logStore.ts    # 日志状态管理
 │   │   ├── taskStore.ts   # 任务队列状态管理
 │   │   └── ffmpegWebStore.ts # FFmpeg Web 页面状态管理（持久化模式偏好）
@@ -274,6 +312,32 @@ docker run -p 3000:3000 ffmpeg-easy
 
 ---
 
+## 📖 Documentation Structure
+
+All documentation has been organized into the `docs/` directory:
+
+### For Users
+- **[User Guide](./docs/user-guide/)**: Getting started, features, FAQ
+- **[FFmpeg Web Guide](./docs/user-guide/FFMPEG_WEB.md)**: Main interface documentation
+- **[Custom Forms Guide](./docs/user-guide/CUSTOM_FORMS.md)**: Creating custom presets
+
+### For Developers  
+- **[Developer Guide](./docs/dev-guide/)**: Architecture, API, development setup
+- **[API Documentation](./docs/dev-guide/API.md)**: FFmpegService API reference
+- **[Task System v4](./docs/dev-guide/TASK_SYSTEM_v4.md)**: Latest task architecture
+- **[Deployment Guide](./docs/dev-guide/DEPLOYMENT.md)**: Platform-specific deployments
+
+### Module-Specific
+- **[Components Module](./app/components/AGENTS.md)**: Component patterns and best practices
+- **[Services Module](./app/services/AGENTS.md)**: Service architecture and integration
+- **[Store Module](./app/store/AGENTS.md)**: State management patterns
+
+### Changelogs & History
+- **[Changelog Directory](./docs/changelog/)**: Detailed feature history
+- See update log section below for recent changes
+
+---
+
 ## 注意事项
 
 1. **生产构建**: 部署前务必运行 `pnpm build`
@@ -285,6 +349,32 @@ docker run -p 3000:3000 ffmpeg-easy
 ---
 
 ## 更新日志
+
+### 2025-11-09 (v5.0) - Three Major Updates 🎉
+- **Store Refactoring Complete** ✨
+  - Restructured all stores into subdirectories (types/index/default-values)
+  - Optimized preset scripts (parameterized, consolidated, WASM-compatible)
+  - Reduced prop drilling by 76% (ExecutionPanel: 17 props → 4 props)
+  - Created focused hooks: `useCommandExecution`, `useQueueOperations`
+  
+- **CDN Selector Feature** 🌐
+  - Multi-CDN support (unpkg, jsDelivr, local resources)
+  - Auto-select best CDN based on latency
+  - Health checking with timeout (5s)
+  - Custom CDN URL validation
+  - FFmpeg version selection (6 versions)
+  - Integrated into settings dialog
+  - FFmpegService enhanced with CDN configuration
+  
+- **Documentation Organization** 📚
+  - Reorganized all docs into `docs/` directory structure
+  - Created user guide, dev guide, changelog, and blog sections
+  - Added module-specific AGENTS.md files:
+    - `app/store/AGENTS.md` - State management patterns
+    - `app/services/AGENTS.md` - Service architecture
+    - `app/components/AGENTS.md` - Component best practices
+  - Updated root AGENTS.md with documentation references
+  - Created comprehensive README files for each documentation section
 
 ### 2025-11-09 (v4.2)
 - **CSR 模式下多线程支持修复** 🔧

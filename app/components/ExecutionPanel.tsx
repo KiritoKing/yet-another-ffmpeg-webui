@@ -14,8 +14,8 @@ import {
 	Trash2,
 } from "lucide-react";
 import { useState } from "react";
-import type { CommandPreset } from "../types/command";
-import type { Task } from "../types/task";
+import { useCommandExecution } from "../hooks/execution/useCommandExecution";
+import { useQueueOperations } from "../hooks/execution/useQueueOperations";
 import {
 	extractNonFileValues,
 	getFileInputFields,
@@ -52,64 +52,42 @@ import { Separator } from "./ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 interface ExecutionPanelProps {
-	// 命令相关
-	selectedPreset: CommandPreset | null;
-	formValues: Record<string, string | number | boolean | File | File[]>;
-	copiedCommand: boolean;
-	onFormChange: (
-		values: Record<string, string | number | boolean | File | File[]>,
-	) => void;
+	// 执行控制 - 必须通过 props 传递的回调
 	onCopyCommand: () => void;
-
-	// 执行控制
 	onExecute: () => void;
-
-	// 队列相关
-	queue: Task[];
-	executingTasks: Task[];
-	completedTasks: Task[];
-	isProcessingQueue: boolean;
-	batchSize: number;
-	initialQueueSize: number;
 	onStartQueue: () => void;
 	onStopQueue: () => void;
-	onClearQueue: () => void;
-	onRemoveTask: (taskId: string) => void;
-	onBatchSizeChange: (size: number) => void;
-	getTaskResultUrl: (taskId: string) => string | undefined;
-	onDownloadResult: (taskId: string) => void;
 }
 
 /**
  * 统一的执行面板组件
  * 整合了命令执行、队列管理和任务历史
+ *
+ * 重构后：直接从 store 和 hooks 消费数据，减少 props drilling
  */
 export function ExecutionPanel({
-	// 命令相关
-	selectedPreset,
-	formValues,
-	copiedCommand,
-	onFormChange,
 	onCopyCommand,
-
-	// 执行控制
 	onExecute,
-
-	// 队列相关
-	queue,
-	executingTasks,
-	completedTasks,
-	isProcessingQueue,
-	batchSize,
-	initialQueueSize,
 	onStartQueue,
 	onStopQueue,
-	onClearQueue,
-	onRemoveTask,
-	onBatchSizeChange,
-	getTaskResultUrl,
-	onDownloadResult,
 }: ExecutionPanelProps) {
+	// 使用新的聚焦 hooks 获取状态
+	const { selectedPreset, formValues, copiedCommand, setFormValues } =
+		useCommandExecution();
+	const {
+		queue,
+		executingTasks,
+		completedTasks,
+		isProcessingQueue,
+		batchSize,
+		initialQueueSize,
+		removeFromQueue,
+		clearQueue,
+		setBatchSize,
+		getTaskResultUrl,
+		downloadTaskResult,
+	} = useQueueOperations();
+
 	// 本地状态
 	const [previewTaskId, setPreviewTaskId] = useState<string | null>(null);
 	const [showQueue, setShowQueue] = useState(true);
@@ -239,7 +217,7 @@ export function ExecutionPanel({
 						<DynamicForm
 							schema={selectedPreset.formSchema}
 							values={formValues}
-							onChange={onFormChange}
+							onChange={setFormValues}
 						/>
 					</Card>
 				)}
@@ -284,7 +262,7 @@ export function ExecutionPanel({
 							<Label htmlFor="batch-size-exec">并发数:</Label>
 							<Select
 								value={batchSize.toString()}
-								onValueChange={(value) => onBatchSizeChange(Number(value))}
+								onValueChange={(value) => setBatchSize(Number(value))}
 								disabled={isProcessingQueue}
 							>
 								<SelectTrigger id="batch-size-exec" className="w-24">
@@ -326,7 +304,7 @@ export function ExecutionPanel({
 								</Button>
 							)}
 							<Button
-								onClick={onClearQueue}
+								onClick={clearQueue}
 								variant="outline"
 								size="sm"
 								disabled={isProcessingQueue || queue.length === 0}
@@ -434,7 +412,7 @@ export function ExecutionPanel({
 												<Button
 													variant="ghost"
 													size="sm"
-													onClick={() => onRemoveTask(task.id)}
+													onClick={() => removeFromQueue(task.id)}
 													disabled={isProcessingQueue}
 												>
 													<Trash2 className="w-4 h-4" />
@@ -522,7 +500,7 @@ export function ExecutionPanel({
 															<Button
 																variant="ghost"
 																size="sm"
-																onClick={() => onDownloadResult(task.id)}
+																onClick={() => downloadTaskResult(task.id)}
 																title="下载"
 															>
 																<DownloadIcon className="w-4 h-4" />
