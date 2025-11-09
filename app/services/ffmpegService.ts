@@ -62,8 +62,35 @@ export class FFmpegService {
 			);
 		}
 
-		// 使用 CDN 配置或默认 jsDelivr
-		const baseURL = this.getBaseURL();
+		// 计算资源基础路径（单线程与多线程）
+		const baseURL = this.getBaseURLFor(this.config.mode);
+		const baseCoreURL = this.getBaseURLFor("single");
+		const baseMtURL = this.getBaseURLFor("multi");
+
+		// 在转换为 Blob URL 之前进行预检，避免把 404 HTML 当成 wasm 导致 LinkError
+		const preflightOk = await this.preflightCheck({
+			mode: this.config.mode,
+			coreURL: `${baseURL}/ffmpeg-core.js`,
+			wasmURL: `${this.config.mode === "multi" ? baseCoreURL : baseURL}/ffmpeg-core.wasm`,
+			workerURL:
+				this.config.mode === "multi"
+					? `${baseMtURL}/ffmpeg-core.worker.js`
+					: undefined,
+		});
+
+		let effectiveBaseURL = baseURL;
+		let effectiveCoreBaseURL = baseCoreURL;
+		let effectiveMtBaseURL = baseMtURL;
+
+		if (!preflightOk) {
+			// 如果本地或自定义源不可用，回退到 jsDelivr
+			this.config.onLog?.(
+				"预检失败，回退到 jsDelivr CDN 加载 FFmpeg 资源",
+			);
+			effectiveBaseURL = this.getCDNBaseURLFor(this.config.mode);
+			effectiveCoreBaseURL = this.getCDNBaseURLFor("single");
+			effectiveMtBaseURL = this.getCDNBaseURLFor("multi");
+		}
 
 		this.ffmpeg = new FFmpeg();
 
@@ -86,9 +113,15 @@ export class FFmpegService {
 			wasmURL: string;
 			workerURL?: string;
 		} = {
-			coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+			coreURL: await toBlobURL(
+				`${effectiveBaseURL}/ffmpeg-core.js`,
+				"text/javascript",
+			),
+			// 多线程模式下，wasm 来自 core（单线程包）路径；单线程模式下来自当前 base
 			wasmURL: await toBlobURL(
-				`${baseURL}/ffmpeg-core.wasm`,
+				`${
+					this.config.mode === "multi" ? effectiveCoreBaseURL : effectiveBaseURL
+				}/ffmpeg-core.wasm`,
 				"application/wasm",
 			),
 		};
@@ -96,39 +129,141 @@ export class FFmpegService {
 		// 多线程版本需要额外的 worker
 		if (this.config.mode === "multi") {
 			loadConfig.workerURL = await toBlobURL(
-				`${baseURL}/ffmpeg-core.worker.js`,
+				`${effectiveMtBaseURL}/ffmpeg-core.worker.js`,
 				"text/javascript",
 			);
 		}
 
-		await this.ffmpeg.load(loadConfig);
-		this.loaded = true;
+		try {
+			await this.ffmpeg.load(loadConfig);
+			this.loaded = true;
+			return;
+		} catch (e) {
+			const errMsg = e instanceof Error ? e.message : String(e);
+			// 某些环境下即使资源可达，也可能因线程/环境限制导致 WASM LinkError
+			const maybeWasmLinkError =
+				/LinkError|WebAssembly\.instantiate|requires a callable/i.test(errMsg);
+			if (this.config.mode === "multi" && maybeWasmLinkError) {
+				this.config.onLog?.(
+					`多线程加载失败(${errMsg})，尝试自动降级为单线程...`,
+				);
+
+				// 尝试单线程回退
+				try {
+					// 重新实例化，避免残留状态
+					this.ffmpeg = new FFmpeg();
+					if (this.config.onLog) {
+						this.ffmpeg.on("log", ({ message }) => this.config.onLog?.(message));
+					}
+					if (this.config.onProgress) {
+						this.ffmpeg.on("progress", ({ progress, time }) =>
+							this.config.onProgress?.(progress, time),
+						);
+					}
+
+					// 计算单线程可用地址（含预检 + CDN 回退）
+					let singleBase = this.getBaseURLFor("single");
+					const singleOk = await this.preflightCheck({
+						mode: "single",
+						coreURL: `${singleBase}/ffmpeg-core.js`,
+						wasmURL: `${singleBase}/ffmpeg-core.wasm`,
+					});
+					if (!singleOk) singleBase = this.getCDNBaseURLFor("single");
+
+					const singleConfig = {
+						coreURL: await toBlobURL(
+							`${singleBase}/ffmpeg-core.js`,
+							"text/javascript",
+						),
+						wasmURL: await toBlobURL(
+							`${singleBase}/ffmpeg-core.wasm`,
+							"application/wasm",
+						),
+					};
+
+					await this.ffmpeg.load(singleConfig);
+					this.loaded = true;
+					// 更新内部模式为单线程，避免后续逻辑误判
+					this.config = { ...this.config, mode: "single" };
+					this.config.onLog?.("已降级为单线程模式并成功加载");
+					return;
+				} catch (e2) {
+					const em2 = e2 instanceof Error ? e2.message : String(e2);
+					this.config.onLog?.(`单线程回退也失败: ${em2}`);
+					throw e2;
+				}
+			}
+			throw e;
+		}
 	}
 
 	/**
 	 * 获取 FFmpeg 资源的基础 URL
 	 */
-	private getBaseURL(): string {
+	private getBaseURLFor(mode: FFmpegMode): string {
 		// 如果配置了 CDN provider，使用它
 		if (this.config.cdnProvider) {
 			const provider = this.config.cdnProvider;
 
-			// 特殊处理本地资源
-			if (provider.id === "local") {
-				return this.config.mode === "multi"
-					? `${provider.baseUrl}/core-mt@0.12.6/dist/esm`
-					: `${provider.baseUrl}/core@0.12.6/dist/esm`;
+			// 特殊处理本地资源：
+			// - provider.id 显式为 "local"
+			// - 或者 baseUrl 以 "/" 开头（表示站点内静态路径）
+			if (provider.id === "local" || provider.baseUrl.startsWith("/")) {
+				// 本地静态资源目录结构为：
+				// public/
+				//   core/@0.12.6/dist/esm/{ffmpeg-core.js, ffmpeg-core.wasm}
+				//   core-mt/@0.12.6/dist/esm/{ffmpeg-core.js, ffmpeg-core.worker.js}
+				// 注意：与 CDN 不同，版本号位于包目录下的 "@<version>" 子目录中，
+				// 而不是拼接在包名后（core@0.12.6）。
+				// 此处忽略 provider.baseUrl，直接使用站点根路径下的静态资源路径。
+				return mode === "multi"
+					? `/core-mt/@0.12.6/dist/esm`
+					: `/core/@0.12.6/dist/esm`;
 			}
 
 			// 使用 CDN provider 的 baseUrl (已包含 @ffmpeg 路径)
-			const corePackage = this.config.mode === "multi" ? "core-mt" : "core";
+			const corePackage = mode === "multi" ? "core-mt" : "core";
 			return `${provider.baseUrl}/${corePackage}@0.12.6/dist/esm`;
 		}
 
 		// 默认使用 jsDelivr（国内友好）
-		const corePackage =
-			this.config.mode === "multi" ? "@ffmpeg/core-mt" : "@ffmpeg/core";
+		const corePackage = mode === "multi" ? "@ffmpeg/core-mt" : "@ffmpeg/core";
 		return `https://cdn.jsdelivr.net/npm/${corePackage}@0.12.6/dist/esm`;
+	}
+
+	/**
+	 * 获取 jsDelivr 的基础 URL（不依赖 store 配置）
+	 */
+	private getCDNBaseURLFor(mode: FFmpegMode): string {
+		const corePackage = mode === "multi" ? "@ffmpeg/core-mt" : "@ffmpeg/core";
+		return `https://cdn.jsdelivr.net/npm/${corePackage}@0.12.6/dist/esm`;
+	}
+
+	/**
+	 * 资源可用性预检：对核心 js、wasm、worker 发起 HEAD 请求，全部成功才算通过
+	 */
+	private async preflightCheck(args: {
+		mode: FFmpegMode;
+		coreURL: string;
+		wasmURL: string;
+		workerURL?: string;
+	}): Promise<boolean> {
+		const urls: string[] = [args.coreURL, args.wasmURL];
+		if (args.workerURL) urls.push(args.workerURL);
+		const checks = await Promise.all(urls.map((u) => this.headOk(u)));
+		return checks.every((ok) => ok);
+	}
+
+	private async headOk(url: string): Promise<boolean> {
+		try {
+			const controller = new AbortController();
+			const t = setTimeout(() => controller.abort(), 4000);
+			const res = await fetch(url, { method: "HEAD", signal: controller.signal });
+			clearTimeout(t);
+			return res.ok;
+		} catch {
+			return false;
+		}
 	}
 
 	/**

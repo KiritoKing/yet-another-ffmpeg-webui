@@ -2,6 +2,7 @@ import {
 	Activity,
 	Database,
 	FileCode,
+	Github,
 	HardDrive,
 	History,
 	Info,
@@ -139,7 +140,7 @@ export function SettingsDialog({
 	return (
 		<>
 			<Dialog open={open} onOpenChange={onOpenChange}>
-				<DialogContent className="max-w-6xl max-h-[85vh] p-0 gap-0">
+				<DialogContent className="max-w-7xl w-[95vw] max-h-[85vh] p-0 gap-0">
 					<DialogHeader className="px-6 pt-6 pb-4">
 						<DialogTitle className="flex items-center gap-2">
 							<Settings2 className="w-5 h-5" />
@@ -148,7 +149,7 @@ export function SettingsDialog({
 						<DialogDescription>配置应用程序的行为和偏好设置</DialogDescription>
 					</DialogHeader>
 
-					<div className="flex h-[calc(85vh-120px)]">
+					<div className="flex h-[calc(85vh-120px)] w-full">
 						{/* 左侧分类导航 */}
 						<div className="w-48 border-r bg-muted/20 p-4 overflow-y-auto">
 							<nav className="space-y-1">
@@ -508,11 +509,36 @@ export function SettingsDialog({
 							{/* 关于 */}
 							{activeCategory === "about" && (
 								<div className="space-y-6">
-									<div>
-										<h3 className="text-lg font-semibold mb-1">关于应用</h3>
-										<p className="text-sm text-muted-foreground">
-											FFmpeg Easy - 简单易用的 FFmpeg Web 工具
-										</p>
+									<div className="text-center space-y-4">
+										{/* Logo */}
+										<div className="flex justify-center">
+											<div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+												<span className="text-white text-3xl font-bold">FF</span>
+											</div>
+										</div>
+
+										{/* App Title */}
+										<div>
+											<h3 className="text-2xl font-bold mb-2">FFmpeg Easy</h3>
+											<p className="text-muted-foreground">
+												简单易用的 FFmpeg Web 工具
+											</p>
+										</div>
+
+										{/* GitHub Button */}
+										<div className="flex justify-center">
+											<Button variant="outline" asChild>
+												<a
+													href="https://github.com/KiritoKing/yet-another-ffmpeg-webui"
+													target="_blank"
+													rel="noopener noreferrer"
+													className="flex items-center gap-2"
+												>
+													<Github className="w-4 h-4" />
+													访问 GitHub 仓库
+												</a>
+											</Button>
+										</div>
 									</div>
 
 									<Separator />

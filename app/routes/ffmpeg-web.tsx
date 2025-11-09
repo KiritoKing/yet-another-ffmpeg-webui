@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CLIImportDialog } from "../components/CLIImportDialog";
 import { CommandPanel } from "../components/CommandPanel";
 import { EditorDialog } from "../components/EditorDialog";
 import { ExecutionPanel } from "../components/ExecutionPanel";
 import { FFmpegToolbar } from "../components/FFmpegToolbar";
+import { Footer } from "../components/Footer";
 import { InitializationDialog } from "../components/InitializationDialog";
 import { ResetConfirmDialog } from "../components/ResetConfirmDialog";
 import { SettingsDialog } from "../components/SettingsDialog";
@@ -11,6 +12,8 @@ import { Card } from "../components/ui/card";
 import { useFFmpegWeb } from "../hooks/useFFmpegWeb";
 import { useCommandStore } from "../store/command";
 import { useFFmpegWebStore } from "../store/ffmpegWeb";
+import { useCDNStore } from "../store/cdn";
+import { CDNSelector } from "../components/CDNSelector";
 import type { CommandPreset } from "../types/command";
 
 /**
@@ -45,6 +48,11 @@ export default function FFmpegWeb() {
 		setCliCommand,
 		setUseMultiThread,
 	} = useFFmpegWebStore();
+
+	// CDN 信息
+	const { config: cdnConfig, getBestProvider } = useCDNStore();
+	const bestProvider = getBestProvider();
+	const [showCDNSelector, setShowCDNSelector] = useState(false);
 
 	const {
 		presets,
@@ -183,6 +191,8 @@ export default function FFmpegWeb() {
 					mode={useMultiThread ? "multi-thread" : "single-thread"}
 					onModeChange={(mode) => setUseMultiThread(mode === "multi-thread")}
 					onLoad={handleInitLoad}
+					onOpenCDN={() => setShowCDNSelector(true)}
+					onOpenSettings={() => setShowSettings(true)}
 				/>
 			)}
 
@@ -192,17 +202,9 @@ export default function FFmpegWeb() {
 				loading={loading}
 				processing={processing}
 				useMultiThread={useMultiThread}
-				onModeChange={setUseMultiThread}
 				onLoadFFmpeg={loadFFmpeg}
 				onReloadFFmpeg={handleReloadFFmpeg}
 				onShowSettings={() => setShowSettings(true)}
-				onShowCLIImport={() => setShowCLIImport(true)}
-				onImportJSON={handleImportJSON}
-				onExportAll={handleExportAll}
-				onNewPreset={() => {
-					setEditingPreset(null);
-					setShowEditor(true);
-				}}
 			/>
 
 			{/* 主内容区域 */}
@@ -229,6 +231,13 @@ export default function FFmpegWeb() {
 									updatePresetInStore(id, { category })
 								}
 								onBatchDelete={batchDelete}
+								onShowCLIImport={() => setShowCLIImport(true)}
+								onImportJSON={handleImportJSON}
+								onExportAll={handleExportAll}
+								onNewPreset={() => {
+									setEditingPreset(null);
+									setShowEditor(true);
+								}}
 							/>
 						</div>{" "}
 						{/* 右侧：执行面板（整合了队列和历史） */}
@@ -242,7 +251,7 @@ export default function FFmpegWeb() {
 						</div>
 					</div>
 				) : (
-					<Card className="p-12 text-center max-w-2xl mx-auto">
+					<Card className="p-12 text-center max-w-2xl mx-auto space-y-8">
 						<svg
 							className="w-20 h-20 mx-auto mb-6 text-muted-foreground"
 							fill="none"
@@ -269,7 +278,7 @@ export default function FFmpegWeb() {
 							点击上方"加载 FFmpeg"按钮开始使用
 						</p>
 
-						<div className="bg-muted/50 rounded-lg p-6 mt-6">
+						<div className="bg-muted/50 rounded-lg p-6">
 							<h3 className="text-lg font-semibold text-foreground mb-4">
 								✨ 功能特点
 							</h3>
@@ -291,6 +300,33 @@ export default function FFmpegWeb() {
 									<span>完全免费，开源项目</span>
 								</li>
 							</ul>
+						</div>
+						{/* CDN 信息区块 */}
+						<div className="bg-muted/30 rounded-lg p-6 text-left">
+							<h3 className="text-lg font-semibold mb-3">🌐 资源加载 (CDN)</h3>
+							<ul className="text-sm text-muted-foreground space-y-2 mb-4">
+								<li>
+									当前模式：{cdnConfig.autoSelect ? "自动选择" : "手动选择"}
+								</li>
+								<li>
+									当前提供商：{bestProvider?.name || "尚未确定"}
+								</li>
+								<li>FFmpeg 版本：v{cdnConfig.ffmpegVersion}</li>
+							</ul>
+							<div className="flex flex-wrap gap-3">
+								<button
+									onClick={() => setShowCDNSelector(true)}
+									className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm hover:bg-muted transition-colors"
+								>
+									打开 CDN 配置
+								</button>
+								<button
+									onClick={() => setShowSettings(true)}
+									className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm hover:bg-muted transition-colors"
+								>
+									更多设置
+								</button>
+							</div>
 						</div>
 					</Card>
 				)}
@@ -339,6 +375,15 @@ export default function FFmpegWeb() {
 				onOpenChange={setShowResetConfirm}
 				onConfirm={handleResetCommands}
 				onCancel={() => setShowResetConfirm(false)}
+			/>
+
+			{/* Footer */}
+			<Footer />
+
+			{/* CDN Selector 快速入口 */}
+			<CDNSelector
+				open={showCDNSelector}
+				onOpenChange={setShowCDNSelector}
 			/>
 		</div>
 	);

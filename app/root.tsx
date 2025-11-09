@@ -47,10 +47,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
 	return (
-		<>
-			<Outlet />
+		<div className="min-h-screen flex flex-col">
+			<main className="flex-1">
+				<Outlet />
+			</main>
 			<Toaster richColors position="top-right" />
-		</>
+		</div>
 	);
 }
 

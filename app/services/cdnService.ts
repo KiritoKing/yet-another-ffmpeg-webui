@@ -129,13 +129,17 @@ export class CDNService {
 		const baseUrl = provider.baseUrl;
 
 		// 根据 CDN 类型生成不同的 URL 格式
-		if (provider.id === "local") {
+		if (provider.id === "local" || baseUrl.startsWith("/")) {
+			// 本地静态资源路径与 CDN 不同，版本位于 "@<version>" 子目录中
+			// public/core/@0.12.6/dist/esm/...
+			// public/core-mt/@0.12.6/dist/esm/...
+			// 直接使用站点根路径，避免叠加 baseUrl（如 /ffmpeg）导致 404。
 			return {
 				version,
-				coreUrl: `${baseUrl}/core@0.12.6/dist/esm/ffmpeg-core.js`,
-				coreWasmUrl: `${baseUrl}/core@0.12.6/dist/esm/ffmpeg-core.wasm`,
-				wasmUrl: `${baseUrl}/core-mt@0.12.6/dist/esm/ffmpeg-core.js`,
-				workerUrl: `${baseUrl}/core-mt@0.12.6/dist/esm/ffmpeg-core.worker.js`,
+				coreUrl: `/core/@0.12.6/dist/esm/ffmpeg-core.js`,
+				coreWasmUrl: `/core/@0.12.6/dist/esm/ffmpeg-core.wasm`,
+				wasmUrl: `/core-mt/@0.12.6/dist/esm/ffmpeg-core.js`,
+				workerUrl: `/core-mt/@0.12.6/dist/esm/ffmpeg-core.worker.js`,
 			};
 		}
 

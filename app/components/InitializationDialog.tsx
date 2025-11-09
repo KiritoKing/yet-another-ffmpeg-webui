@@ -4,6 +4,8 @@
  */
 
 import { useState } from "react";
+import { Activity } from "lucide-react";
+import { useCDNStore } from "../store/cdn";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Label } from "./ui/label";
@@ -20,6 +22,10 @@ interface InitializationDialogProps {
 	onModeChange: (mode: "multi-thread" | "single-thread") => void;
 	/** 加载按钮点击回调 */
 	onLoad: (rememberChoice: boolean) => void;
+	/** 打开 CDN 配置回调（可选） */
+	onOpenCDN?: () => void;
+	/** 打开设置回调（可选） */
+	onOpenSettings?: () => void;
 }
 
 export function InitializationDialog({
@@ -28,8 +34,12 @@ export function InitializationDialog({
 	showRememberChoice = true,
 	onModeChange,
 	onLoad,
+	onOpenCDN,
+	onOpenSettings,
 }: InitializationDialogProps) {
-	const [rememberChoice, setRememberChoice] = useState(true);
+	const [rememberChoice, setRememberChoice] = useState(false);
+	const { config: cdnConfig, getBestProvider } = useCDNStore();
+	const bestProvider = getBestProvider();
 
 	const handleLoad = () => {
 		onLoad(rememberChoice);
@@ -88,6 +98,29 @@ export function InitializationDialog({
 								</div>
 							</div>
 						</RadioGroup>
+					</div>
+
+					{/* CDN 信息与入口 */}
+					<div className="rounded-lg border p-4">
+						<div className="flex items-center gap-2 mb-2">
+							<Activity className="w-4 h-4 text-muted-foreground" />
+							<Label className="text-sm">资源加载 (CDN)</Label>
+						</div>
+						<ul className="text-xs text-muted-foreground space-y-1 mb-3">
+							<li>
+								当前模式：{cdnConfig.autoSelect ? "自动选择" : "手动选择"}
+							</li>
+							<li>当前提供商：{bestProvider?.name || "尚未确定"}</li>
+							<li>FFmpeg 版本：v{cdnConfig.ffmpegVersion}</li>
+						</ul>
+						<div className="flex gap-2">
+							<Button variant="outline" size="sm" onClick={onOpenCDN}>
+								打开 CDN 配置
+							</Button>
+							<Button variant="ghost" size="sm" onClick={onOpenSettings}>
+								更多设置
+							</Button>
+						</div>
 					</div>
 
 					{/* 记住选择 */}
