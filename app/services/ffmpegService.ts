@@ -150,20 +150,37 @@ export class FFmpegService {
 		}
 
 		// 转换为 Blob URL
+		// Helper: 判断给定 url 是否与当前页面同源或为相对路径
+		const isSameOrigin = (url: string) => {
+			try {
+				const resolved = new URL(url, location.href);
+				return resolved.origin === location.origin;
+			} catch {
+				// 解析失败时保守认为不是同源
+				return false;
+			}
+		};
+
+		// 对于同源（本地托管）资源，直接使用原始 URL 可以避免将 worker 脚本包装为 blob 后
+		// 在多线程环境中导致嵌套 worker 或 importScripts 路径解析异常的问题。
+		// 仅对跨域/外部 CDN 的资源使用 toBlobURL。
 		const loadConfig: {
 			coreURL: string;
 			wasmURL: string;
 			workerURL?: string;
 		} = {
-			coreURL: await toBlobURL(finalUrls.coreUrl, "text/javascript"),
-			wasmURL: await toBlobURL(finalUrls.wasmUrl, "application/wasm"),
+			coreURL: isSameOrigin(finalUrls.coreUrl)
+				? finalUrls.coreUrl
+				: await toBlobURL(finalUrls.coreUrl, "text/javascript"),
+			wasmURL: isSameOrigin(finalUrls.wasmUrl)
+				? finalUrls.wasmUrl
+				: await toBlobURL(finalUrls.wasmUrl, "application/wasm"),
 		};
 
 		if (finalUrls.workerUrl) {
-			loadConfig.workerURL = await toBlobURL(
-				finalUrls.workerUrl,
-				"text/javascript",
-			);
+			loadConfig.workerURL = isSameOrigin(finalUrls.workerUrl)
+				? finalUrls.workerUrl
+				: await toBlobURL(finalUrls.workerUrl, "text/javascript");
 		}
 
 		this.config.onLog?.(
@@ -184,13 +201,22 @@ export class FFmpegService {
 					"检测到页面未处于 crossOriginIsolated（缺少 COOP/COEP 头），无法使用多线程 FFmpeg。",
 				);
 			}
-			await this.ffmpeg.load(loadConfig);
+			// 为防止在某些环境（网络、WASM/worker 加载）下无期限挂起，给加载设置超时保护
+			const loadPromise = this.ffmpeg.load(loadConfig);
+			const timeoutMs = 30000; // 30s
+			const timeoutPromise = new Promise((_, rej) =>
+				setTimeout(() => rej(new Error("FFMPEG_LOAD_TIMEOUT")), timeoutMs),
+			);
+
+			await Promise.race([loadPromise, timeoutPromise]);
 			this.loaded = true;
 			return;
 		} catch (e) {
 			const errMsg = e instanceof Error ? e.message : String(e);
 			const maybeWasmLinkError =
-				/LinkError|WebAssembly\.instantiate|requires a callable/i.test(errMsg);
+				/LinkError|WebAssembly\.instantiate|requires a callable/i.test(
+					errMsg,
+				) || errMsg.includes("FFMPEG_LOAD_TIMEOUT");
 
 			// 如果是多线程模式且遇到 WASM 错误，尝试降级到单线程
 			if (this.config.mode === "multi" && maybeWasmLinkError) {
