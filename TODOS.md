@@ -29,7 +29,7 @@
   - 在一个目录下管理除了readme和agents的所有文档，分为使用说明、开发说明、changelog和blog四个部分
   - 使用Docusaurus渲染上面的文档
   - 为特定的目录模块（有必要的话）增加AGENTS.md，拆分根目录下的AGENTS.md，增加上下文的聚焦性
-- [ ] 完成SPEC kit接入，按本次迭代的最终态确定spec
+- [x] 完成SPEC kit接入，按本次迭代的最终态确定spec
 - [x] 脚手架变更
   - 这个应用没有必要ssr，直接去掉ssr能力，变成纯csr应用
   - 改成真正的文件路由模式，你可以先用context7查一下react-router-7最新的api
