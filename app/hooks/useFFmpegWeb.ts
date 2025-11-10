@@ -83,7 +83,7 @@ export function useFFmpegWeb() {
 	} = useCommandStore();
 
 	// CDN 配置
-	const { getBestProvider } = useCDNStore();
+	const { getBestProvider, config: cdnConfig } = useCDNStore();
 
 	// 初始化任务管理器
 	const taskManager = useTaskManager(ffmpegServiceRef);
@@ -167,6 +167,7 @@ export function useFFmpegWeb() {
 			const service = new FFmpegService({
 				mode,
 				cdnProvider: cdnProvider || undefined,
+				ffmpegVersion: cdnConfig.ffmpegVersion,
 				onLog: (message) => {
 					console.log(message);
 					addLog(message, "info");

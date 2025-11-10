@@ -1,6 +1,7 @@
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import type { CDNProvider } from "../store/cdn/types";
+import { CDNProviderFactory, type ICDNProvider } from "./cdn";
 
 export type FFmpegMode = "single" | "multi";
 
@@ -10,6 +11,7 @@ export interface FFmpegConfig {
 	onProgress?: (progress: number, time: number) => void;
 	onModeChange?: (newMode: FFmpegMode) => void; // 模式变更回调（用于降级通知）
 	cdnProvider?: CDNProvider; // 可选的 CDN 配置
+	ffmpegVersion?: string; // FFmpeg 版本，默认 0.12.6
 }
 
 export interface ConvertOptions {
@@ -33,9 +35,17 @@ export class FFmpegService {
 	private loaded = false;
 	private isExecuting = false;
 	private isAborting = false;
+	private cdnProvider: ICDNProvider | null = null;
 
 	constructor(config: FFmpegConfig) {
 		this.config = config;
+		// 初始化 CDN Provider
+		if (config.cdnProvider) {
+			this.cdnProvider = CDNProviderFactory.fromStoreConfig(
+				config.cdnProvider,
+				config.ffmpegVersion || "0.12.6",
+			);
+		}
 	}
 
 	/**
@@ -71,37 +81,49 @@ export class FFmpegService {
 			);
 		}
 
-		// 计算资源基础路径（单线程与多线程）
-		const baseURL = this.getBaseURLFor(this.config.mode);
-		const baseCoreURL = this.getBaseURLFor("single");
-		const baseMtURL = this.getBaseURLFor("multi");
-
-		// 在转换为 Blob URL 之前进行预检，避免把 404 HTML 当成 wasm 导致 LinkError
-		const preflightOk = await this.preflightCheck({
-			mode: this.config.mode,
-			coreURL: `${baseURL}/ffmpeg-core.js`,
-			// 注意：core-mt 不包含 wasm，wasm 始终来自 core 包
-			wasmURL: `${
-				this.config.mode === "multi" ? baseCoreURL : baseURL
-			}/ffmpeg-core.wasm`,
-			workerURL:
-				this.config.mode === "multi"
-					? `${baseMtURL}/ffmpeg-core.worker.js`
-					: undefined,
-		});
-
-		let effectiveBaseURL = baseURL;
-		let effectiveCoreBaseURL = baseCoreURL;
-		let effectiveMtBaseURL = baseMtURL;
-
-		if (!preflightOk) {
-			// 如果本地或自定义源不可用，回退到 jsDelivr
-			this.config.onLog?.("预检失败，回退到 jsDelivr CDN 加载 FFmpeg 资源");
-			effectiveBaseURL = this.getCDNBaseURLFor(this.config.mode);
-			effectiveCoreBaseURL = this.getCDNBaseURLFor("single");
-			effectiveMtBaseURL = this.getCDNBaseURLFor("multi");
+		// 获取或创建 CDN Provider
+		let provider = this.cdnProvider;
+		if (!provider) {
+			// 如果没有指定 CDN，自动选择最佳的
+			this.config.onLog?.("未指定 CDN，正在自动选择最佳 CDN...");
+			provider = await CDNProviderFactory.selectBestProvider();
+			// 设置版本
+			const version = this.config.ffmpegVersion || "0.12.6";
+			provider.setVersion(version);
+			this.cdnProvider = provider;
+			this.config.onLog?.(`已选择 CDN: ${provider.name} (版本: ${version})`);
 		}
 
+		// 获取资源 URL
+		const urls = provider.getResourceUrls(this.config.mode);
+		this.config.onLog?.(
+			`从 ${provider.name} (v${provider.version}) 加载资源:\n` +
+				`  - Core: ${urls.coreUrl}\n` +
+				`  - WASM: ${urls.wasmUrl}` +
+				(urls.workerUrl ? `\n  - Worker: ${urls.workerUrl}` : ""),
+		);
+
+		// 预检资源可用性
+		const preflightOk = await provider.preflightCheck(this.config.mode);
+		if (!preflightOk) {
+			this.config.onLog?.(`${provider.name} 预检失败，尝试回退到 jsDelivr...`);
+			// 回退到 jsDelivr
+			const version = this.config.ffmpegVersion || "0.12.6";
+			const fallbackProvider = CDNProviderFactory.getProvider(
+				"jsdelivr",
+				version,
+			);
+			if (!fallbackProvider) {
+				throw new Error("无法获取回退 CDN Provider");
+			}
+			provider = fallbackProvider;
+			this.cdnProvider = provider;
+		}
+
+		// 重新获取资源 URL（可能已切换到回退 CDN）
+		const finalUrls = provider.getResourceUrls(this.config.mode);
+
+		// 创建 FFmpeg 实例
 		this.ffmpeg = new FFmpeg();
 
 		// 设置日志回调
@@ -118,39 +140,29 @@ export class FFmpegService {
 			});
 		}
 
+		// 转换为 Blob URL
 		const loadConfig: {
 			coreURL: string;
 			wasmURL: string;
 			workerURL?: string;
 		} = {
-			coreURL: await toBlobURL(
-				`${effectiveBaseURL}/ffmpeg-core.js`,
-				"text/javascript",
-			),
-			// 注意：core-mt 不包含 wasm，wasm 始终来自 core 包
-			wasmURL: await toBlobURL(
-				`$${
-					this.config.mode === "multi" ? effectiveCoreBaseURL : effectiveBaseURL
-				}/ffmpeg-core.wasm`,
-				"application/wasm",
-			),
+			coreURL: await toBlobURL(finalUrls.coreUrl, "text/javascript"),
+			wasmURL: await toBlobURL(finalUrls.wasmUrl, "application/wasm"),
 		};
 
-		// 多线程版本需要额外的 worker
-		if (this.config.mode === "multi") {
+		if (finalUrls.workerUrl) {
 			loadConfig.workerURL = await toBlobURL(
-				`${effectiveMtBaseURL}/ffmpeg-core.worker.js`,
+				finalUrls.workerUrl,
 				"text/javascript",
 			);
 		}
 
-		// 额外的调试日志，便于问题定位
 		this.config.onLog?.(
 			`[FFmpegService] 准备加载(${this.config.mode}) coreURL=${loadConfig.coreURL} wasmURL=${loadConfig.wasmURL} workerURL=${loadConfig.workerURL ?? "(none)"}`,
 		);
 
 		try {
-			// 在尝试加载多线程版本前再次校验 crossOriginIsolated，给予清晰提示
+			// 多线程模式再次校验 crossOriginIsolated
 			if (
 				this.config.mode === "multi" &&
 				!(
@@ -168,18 +180,19 @@ export class FFmpegService {
 			return;
 		} catch (e) {
 			const errMsg = e instanceof Error ? e.message : String(e);
-			// 某些环境下即使资源可达，也可能因线程/环境限制导致 WASM LinkError
 			const maybeWasmLinkError =
 				/LinkError|WebAssembly\.instantiate|requires a callable/i.test(errMsg);
+
+			// 如果是多线程模式且遇到 WASM 错误，尝试降级到单线程
 			if (this.config.mode === "multi" && maybeWasmLinkError) {
 				this.config.onLog?.(
-					`多线程加载失败 (${errMsg})。将尝试自动降级到单线程。可能原因: 1) 资源路径不匹配 2) 缺少 COOP/COEP 头 3) 浏览器禁用了 SharedArrayBuffer。`,
+					`多线程加载失败 (${errMsg})。将尝试自动降级到单线程。`,
 				);
 
-				// 尝试单线程回退
 				try {
-					// 重新实例化，避免残留状态
+					// 重新实例化 FFmpeg
 					this.ffmpeg = new FFmpeg();
+
 					if (this.config.onLog) {
 						this.ffmpeg.on("log", ({ message }) =>
 							this.config.onLog?.(message),
@@ -191,32 +204,17 @@ export class FFmpegService {
 						);
 					}
 
-					// 计算单线程可用地址（含预检 + CDN 回退）
-					let singleBase = this.getBaseURLFor("single");
-					const singleOk = await this.preflightCheck({
-						mode: "single",
-						coreURL: `${singleBase}/ffmpeg-core.js`,
-						wasmURL: `${singleBase}/ffmpeg-core.wasm`,
-					});
-					if (!singleOk) singleBase = this.getCDNBaseURLFor("single");
-
+					// 获取单线程资源 URL
+					const singleUrls = provider.getResourceUrls("single");
 					const singleConfig = {
-						coreURL: await toBlobURL(
-							`${singleBase}/ffmpeg-core.js`,
-							"text/javascript",
-						),
-						wasmURL: await toBlobURL(
-							`${singleBase}/ffmpeg-core.wasm`,
-							"application/wasm",
-						),
+						coreURL: await toBlobURL(singleUrls.coreUrl, "text/javascript"),
+						wasmURL: await toBlobURL(singleUrls.wasmUrl, "application/wasm"),
 					};
 
 					await this.ffmpeg.load(singleConfig);
 					this.loaded = true;
-					// 更新内部模式为单线程，避免后续逻辑误判
 					this.config = { ...this.config, mode: "single" };
 					this.config.onLog?.("已降级为单线程模式并成功加载");
-					// 通知外部模式已变更
 					this.config.onModeChange?.("single");
 					return;
 				} catch (e2) {
@@ -226,78 +224,6 @@ export class FFmpegService {
 				}
 			}
 			throw e;
-		}
-	}
-
-	/**
-	 * 获取 FFmpeg 资源的基础 URL
-	 */
-	private getBaseURLFor(mode: FFmpegMode): string {
-		// 如果配置了 CDN provider，使用它
-		if (this.config.cdnProvider) {
-			const provider = this.config.cdnProvider;
-
-			// 特殊处理本地资源：
-			// - provider.id 显式为 "local"
-			// - 或者 baseUrl 以 "/" 开头（表示站点内静态路径）
-			if (provider.id === "local" || provider.baseUrl.startsWith("/")) {
-				// 本地静态资源目录结构为：
-				// public/
-				//   core/@0.12.6/dist/esm/{ffmpeg-core.js, ffmpeg-core.wasm}
-				//   core-mt/@0.12.6/dist/esm/{ffmpeg-core.js, ffmpeg-core.worker.js}
-				// 注意：与 CDN 不同，版本号位于包目录下的 "@<version>" 子目录中，
-				// 而不是拼接在包名后（core@0.12.6）。
-				// 此处忽略 provider.baseUrl，直接使用站点根路径下的静态资源路径。
-				return mode === "multi"
-					? `/core-mt/@0.12.6/dist/esm`
-					: `/core/@0.12.6/dist/esm`;
-			}
-
-			// 使用 CDN provider 的 baseUrl (已包含 @ffmpeg 路径)
-			const corePackage = mode === "multi" ? "core-mt" : "core";
-			return `${provider.baseUrl}/${corePackage}@0.12.6/dist/esm`;
-		}
-
-		// 默认使用 jsDelivr（国内友好）
-		const corePackage = mode === "multi" ? "@ffmpeg/core-mt" : "@ffmpeg/core";
-		return `https://cdn.jsdelivr.net/npm/${corePackage}@0.12.6/dist/esm`;
-	}
-
-	/**
-	 * 获取 jsDelivr 的基础 URL（不依赖 store 配置）
-	 */
-	private getCDNBaseURLFor(mode: FFmpegMode): string {
-		const corePackage = mode === "multi" ? "@ffmpeg/core-mt" : "@ffmpeg/core";
-		return `https://cdn.jsdelivr.net/npm/${corePackage}@0.12.6/dist/esm`;
-	}
-
-	/**
-	 * 资源可用性预检：对核心 js、wasm、worker 发起 HEAD 请求，全部成功才算通过
-	 */
-	private async preflightCheck(args: {
-		mode: FFmpegMode;
-		coreURL: string;
-		wasmURL: string;
-		workerURL?: string;
-	}): Promise<boolean> {
-		const urls: string[] = [args.coreURL, args.wasmURL];
-		if (args.workerURL) urls.push(args.workerURL);
-		const checks = await Promise.all(urls.map((u) => this.headOk(u)));
-		return checks.every((ok) => ok);
-	}
-
-	private async headOk(url: string): Promise<boolean> {
-		try {
-			const controller = new AbortController();
-			const t = setTimeout(() => controller.abort(), 4000);
-			const res = await fetch(url, {
-				method: "HEAD",
-				signal: controller.signal,
-			});
-			clearTimeout(t);
-			return res.ok;
-		} catch {
-			return false;
 		}
 	}
 
