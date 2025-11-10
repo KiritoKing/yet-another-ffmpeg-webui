@@ -11,7 +11,7 @@ export interface FFmpegConfig {
 	onProgress?: (progress: number, time: number) => void;
 	onModeChange?: (newMode: FFmpegMode) => void; // 模式变更回调（用于降级通知）
 	cdnProvider?: CDNProvider; // 可选的 CDN 配置
-	ffmpegVersion?: string; // FFmpeg 版本，默认 0.12.6
+	ffmpegVersion?: string; // FFmpeg 版本，默认 0.12.10
 }
 
 export interface ConvertOptions {
@@ -43,7 +43,7 @@ export class FFmpegService {
 		if (config.cdnProvider) {
 			this.cdnProvider = CDNProviderFactory.fromStoreConfig(
 				config.cdnProvider,
-				config.ffmpegVersion || "0.12.6",
+				config.ffmpegVersion || "0.12.10",
 			);
 		}
 	}
@@ -88,7 +88,7 @@ export class FFmpegService {
 			this.config.onLog?.("未指定 CDN，正在自动选择最佳 CDN...");
 			provider = await CDNProviderFactory.selectBestProvider();
 			// 设置版本
-			const version = this.config.ffmpegVersion || "0.12.6";
+			const version = this.config.ffmpegVersion || "0.12.10";
 			provider.setVersion(version);
 			this.cdnProvider = provider;
 			this.config.onLog?.(`已选择 CDN: ${provider.name} (版本: ${version})`);
@@ -108,7 +108,7 @@ export class FFmpegService {
 		if (!preflightOk) {
 			this.config.onLog?.(`${provider.name} 预检失败，尝试回退到 jsDelivr...`);
 			// 回退到 jsDelivr
-			const version = this.config.ffmpegVersion || "0.12.6";
+			const version = this.config.ffmpegVersion || "0.12.10";
 			const fallbackProvider = CDNProviderFactory.getProvider(
 				"jsdelivr",
 				version,

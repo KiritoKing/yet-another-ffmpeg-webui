@@ -9,7 +9,7 @@ export abstract class BaseCDNProvider implements ICDNProvider {
 	abstract readonly name: string;
 	abstract readonly description: string;
 
-	/** FFmpeg 版本，默认 0.12.6 */
+	/** FFmpeg 版本，默认 0.12.10 */
 	version = "0.12.10";
 
 	/**

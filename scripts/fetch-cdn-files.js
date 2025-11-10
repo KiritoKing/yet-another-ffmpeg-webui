@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 
 // Configuration
 const CDN_BASE_URL = 'https://unpkg.com/@ffmpeg';
-const VERSION = '0.12.6';
+const VERSION = '0.12.10';
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 // Files to download for local CDN
@@ -107,12 +107,12 @@ async function downloadCDNFiles() {
     console.log('\n🎉 All CDN files downloaded successfully!');
     console.log('\nLocal CDN structure created:');
     console.log('public/');
-    console.log('├── core@0.12.6/');
+    console.log('├── core@0.12.10/');
     console.log('│   ├── package.json');
     console.log('│   └── dist/esm/');
     console.log('│       ├── ffmpeg-core.js');
     console.log('│       └── ffmpeg-core.wasm');
-    console.log('└── core-mt@0.12.6/');
+    console.log('└── core-mt@0.12.10/');
     console.log('    └── dist/esm/');
     console.log('        ├── ffmpeg-core.js');
     console.log('        └── ffmpeg-core.worker.js');

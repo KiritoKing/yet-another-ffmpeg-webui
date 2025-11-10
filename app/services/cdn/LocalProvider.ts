@@ -6,8 +6,8 @@ import type { FFmpegResourceUrls } from "./types";
  * URL 格式: /core[@|@-mt]/{version}/dist/esm/{file}
  *
  * 注意：本地资源目录结构与 CDN 不同
- * - public/core/@0.12.6/dist/esm/
- * - public/core-mt/@0.12.6/dist/esm/
+ * - public/core/@0.12.10/dist/esm/
+ * - public/core-mt/@0.12.10/dist/esm/
  */
 export class LocalProvider extends BaseCDNProvider {
 	readonly id = "local";
@@ -16,8 +16,8 @@ export class LocalProvider extends BaseCDNProvider {
 
 	constructor() {
 		super();
-		// 本地资源版本固定为 0.12.6（需要预先下载）
-		this.version = "0.12.6";
+		// 本地资源版本固定为 0.12.10（需要预先下载）
+		this.version = "0.12.10";
 	}
 
 	getResourceUrls(mode: "single" | "multi"): FFmpegResourceUrls {

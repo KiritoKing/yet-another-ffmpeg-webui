@@ -6,11 +6,11 @@
 
 根据 `app/services/cdnService.ts` 中的需求，脚本会下载以下文件：
 
-- `core@0.12.6/package.json`
-- `core@0.12.6/dist/esm/ffmpeg-core.js`
-- `core@0.12.6/dist/esm/ffmpeg-core.wasm`
-- `core-mt@0.12.6/dist/esm/ffmpeg-core.js`
-- `core-mt@0.12.6/dist/esm/ffmpeg-core.worker.js`
+- `core@0.12.10/package.json`
+- `core@0.12.10/dist/esm/ffmpeg-core.js`
+- `core@0.12.10/dist/esm/ffmpeg-core.wasm`
+- `core-mt@0.12.10/dist/esm/ffmpeg-core.js`
+- `core-mt@0.12.10/dist/esm/ffmpeg-core.worker.js`
 
 ## 使用方法
 
@@ -32,12 +32,12 @@ pnpm cdn:fetch
 
 ```
 public/
-├── core@0.12.6/
+├── core@0.12.10/
 │   ├── package.json
 │   └── dist/esm/
 │       ├── ffmpeg-core.js
 │       └── ffmpeg-core.wasm
-└── core-mt@0.12.6/
+└── core-mt@0.12.10/
     └── dist/esm/
         ├── ffmpeg-core.js
         └── ffmpeg-core.worker.js
@@ -59,7 +59,7 @@ public/
 
 1. **网络连接**：脚本需要稳定的网络连接来下载文件
 2. **文件大小**：WASM文件较大（约10-15MB），下载可能需要一些时间
-3. **版本固定**：脚本固定下载 `0.12.6` 版本，与 `cdnService.ts` 中指定的版本一致
+3. **版本固定**：脚本固定下载 `0.12.10` 版本，与 `cdnService.ts` 中指定的版本一致
 4. **权限**：确保脚本有权限在 `public/` 目录中创建文件和文件夹
 
 ## 故障排除
@@ -77,4 +77,4 @@ chmod +x scripts/fetch-cdn-files.js
 ```
 
 ### 手动清理
-如需重新下载，可以手动删除 `public/core@0.12.6` 和 `public/core-mt@0.12.6` 目录。
+如需重新下载，可以手动删除 `public/core@0.12.10` 和 `public/core-mt@0.12.10` 目录。

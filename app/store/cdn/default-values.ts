@@ -35,7 +35,7 @@ export const defaultProviders: CDNProvider[] = [
 /**
  * 默认 FFmpeg 版本
  */
-export const DEFAULT_FFMPEG_VERSION = "0.12.15";
+export const DEFAULT_FFMPEG_VERSION = "0.12.10";
 
 /**
  * 默认 CDN 配置

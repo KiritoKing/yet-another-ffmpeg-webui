@@ -30,7 +30,7 @@ export class CDNService {
 
 			// 使用 HEAD 请求检查 CDN 是否可用
 			// 检查 ffmpeg 包的 package.json（小文件，快速响应）
-			const url = `${provider.baseUrl}/core@0.12.6/package.json`;
+			const url = `${provider.baseUrl}/core@0.12.10/package.json`;
 
 			const controller = new AbortController();
 			const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
@@ -125,7 +125,7 @@ export class CDNService {
 	/**
 	 * 生成 FFmpeg 资源的完整 URL
 	 * @param provider CDN 提供商
-	 * @param version FFmpeg 版本（目前未使用，因为 core 版本固定为 0.12.6）
+	 * @param version FFmpeg 版本（目前未使用，因为 core 版本固定为 0.12.10）
 	 */
 	static generateFFmpegUrls(
 		provider: CDNProvider,
@@ -136,25 +136,25 @@ export class CDNService {
 		// 根据 CDN 类型生成不同的 URL 格式
 		if (provider.id === "local" || baseUrl.startsWith("/")) {
 			// 本地静态资源路径与 CDN 不同，版本位于 "@<version>" 子目录中
-			// public/core/@0.12.6/dist/esm/...
-			// public/core-mt/@0.12.6/dist/esm/...
+			// public/core/@0.12.10/dist/esm/...
+			// public/core-mt/@0.12.10/dist/esm/...
 			// 直接使用站点根路径，避免叠加 baseUrl（如 /ffmpeg）导致 404。
 			return {
 				version,
-				coreUrl: `/core/@0.12.6/dist/esm/ffmpeg-core.js`,
-				coreWasmUrl: `/core/@0.12.6/dist/esm/ffmpeg-core.wasm`,
-				wasmUrl: `/core-mt/@0.12.6/dist/esm/ffmpeg-core.js`,
-				workerUrl: `/core-mt/@0.12.6/dist/esm/ffmpeg-core.worker.js`,
+				coreUrl: `/core/@0.12.10/dist/esm/ffmpeg-core.js`,
+				coreWasmUrl: `/core/@0.12.10/dist/esm/ffmpeg-core.wasm`,
+				wasmUrl: `/core-mt/@0.12.10/dist/esm/ffmpeg-core.js`,
+				workerUrl: `/core-mt/@0.12.10/dist/esm/ffmpeg-core.worker.js`,
 			};
 		}
 
 		// unpkg 和 jsdelivr 使用标准格式
 		return {
 			version,
-			coreUrl: `${baseUrl}/core@0.12.6/dist/esm/ffmpeg-core.js`,
-			coreWasmUrl: `${baseUrl}/core@0.12.6/dist/esm/ffmpeg-core.wasm`,
-			wasmUrl: `${baseUrl}/core-mt@0.12.6/dist/esm/ffmpeg-core.js`,
-			workerUrl: `${baseUrl}/core-mt@0.12.6/dist/esm/ffmpeg-core.worker.js`,
+			coreUrl: `${baseUrl}/core@0.12.10/dist/esm/ffmpeg-core.js`,
+			coreWasmUrl: `${baseUrl}/core@0.12.10/dist/esm/ffmpeg-core.wasm`,
+			wasmUrl: `${baseUrl}/core-mt@0.12.10/dist/esm/ffmpeg-core.js`,
+			workerUrl: `${baseUrl}/core-mt@0.12.10/dist/esm/ffmpeg-core.worker.js`,
 		};
 	}
 

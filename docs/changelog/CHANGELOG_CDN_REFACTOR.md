@@ -92,7 +92,7 @@ getResourceUrls(mode: "single" | "multi"): FFmpegResourceUrls {
 // 测试 unpkg Provider
 const provider = new UnpkgProvider();
 const urls = provider.getResourceUrls("multi");
-assert.equal(urls.coreUrl, "https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm/ffmpeg-core.js");
+assert.equal(urls.coreUrl, "https://unpkg.com/@ffmpeg/core-mt@0.12.10/dist/esm/ffmpeg-core.js");
 
 // 测试健康检查
 const healthy = await provider.checkHealth();
@@ -168,10 +168,10 @@ await service.load(); // 使用自定义 CDN
 // 在 ffmpegService.ts 中硬编码 URL 逻辑
 private getBaseURLFor(mode: FFmpegMode): string {
   if (this.config.cdnProvider?.id === "local") {
-    return mode === "multi" ? `/core-mt/@0.12.6/dist/esm` : `/core/@0.12.6/dist/esm`;
+    return mode === "multi" ? `/core-mt/@0.12.10/dist/esm` : `/core/@0.12.10/dist/esm`;
   }
   const pkg = mode === "multi" ? "core-mt" : "core";
-  return `${this.config.cdnProvider?.baseUrl}/${pkg}@0.12.6/dist/esm`;
+  return `${this.config.cdnProvider?.baseUrl}/${pkg}@0.12.10/dist/esm`;
 }
 ```
 
