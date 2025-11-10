@@ -7,7 +7,7 @@ export type FFmpegMode = "single" | "multi";
 
 export interface FFmpegConfig {
 	mode: FFmpegMode;
-	onLog?: (message: string) => void;
+	onLog?: (message: string, instanceId?: string) => void; // 支持 instanceId
 	onProgress?: (progress: number, time: number) => void;
 	onModeChange?: (newMode: FFmpegMode) => void; // 模式变更回调（用于降级通知）
 	cdnProvider?: CDNProvider; // 可选的 CDN 配置
@@ -36,9 +36,11 @@ export class FFmpegService {
 	private isExecuting = false;
 	private isAborting = false;
 	private cdnProvider: ICDNProvider | null = null;
+	private instanceId?: string; // 实例ID，用于区分多个worker
 
-	constructor(config: FFmpegConfig) {
+	constructor(config: FFmpegConfig, instanceId?: string) {
 		this.config = config;
+		this.instanceId = instanceId;
 		// 初始化 CDN Provider
 		if (config.cdnProvider) {
 			this.cdnProvider = CDNProviderFactory.fromStoreConfig(
@@ -46,6 +48,13 @@ export class FFmpegService {
 				config.ffmpegVersion || "0.12.10",
 			);
 		}
+	}
+
+	/**
+	 * 内部日志方法，传递instanceId但不添加前缀（让外部处理前缀）
+	 */
+	private log(message: string): void {
+		this.config.onLog?.(message, this.instanceId);
 	}
 
 	/**
@@ -85,18 +94,18 @@ export class FFmpegService {
 		let provider = this.cdnProvider;
 		if (!provider) {
 			// 如果没有指定 CDN，自动选择最佳的
-			this.config.onLog?.("未指定 CDN，正在自动选择最佳 CDN...");
+			this.log("未指定 CDN，正在自动选择最佳 CDN...");
 			provider = await CDNProviderFactory.selectBestProvider();
 			// 设置版本
 			const version = this.config.ffmpegVersion || "0.12.10";
 			provider.setVersion(version);
 			this.cdnProvider = provider;
-			this.config.onLog?.(`已选择 CDN: ${provider.name} (版本: ${version})`);
+			this.log(`已选择 CDN: ${provider.name} (版本: ${version})`);
 		}
 
 		// 获取资源 URL
 		const urls = provider.getResourceUrls(this.config.mode);
-		this.config.onLog?.(
+		this.log(
 			`从 ${provider.name} (v${provider.version}) 加载资源:\n` +
 				`  - Core: ${urls.coreUrl}\n` +
 				`  - WASM: ${urls.wasmUrl}` +
@@ -106,7 +115,7 @@ export class FFmpegService {
 		// 预检资源可用性
 		const preflightOk = await provider.preflightCheck(this.config.mode);
 		if (!preflightOk) {
-			this.config.onLog?.(`${provider.name} 预检失败，尝试回退到 jsDelivr...`);
+			this.log(`${provider.name} 预检失败，尝试回退到 jsDelivr...`);
 			// 回退到 jsDelivr
 			const version = this.config.ffmpegVersion || "0.12.10";
 			const fallbackProvider = CDNProviderFactory.getProvider(
@@ -129,7 +138,7 @@ export class FFmpegService {
 		// 设置日志回调
 		if (this.config.onLog) {
 			this.ffmpeg.on("log", ({ message }) => {
-				this.config.onLog?.(message);
+				this.log(message);
 			});
 		}
 
@@ -194,9 +203,7 @@ export class FFmpegService {
 					this.ffmpeg = new FFmpeg();
 
 					if (this.config.onLog) {
-						this.ffmpeg.on("log", ({ message }) =>
-							this.config.onLog?.(message),
-						);
+						this.ffmpeg.on("log", ({ message }) => this.log(message));
 					}
 					if (this.config.onProgress) {
 						this.ffmpeg.on("progress", ({ progress, time }) =>
@@ -254,16 +261,16 @@ export class FFmpegService {
 		try {
 			// 写入所有输入文件
 			for (const { file, name } of inputFiles) {
-				this.config.onLog?.(
+				this.log(
 					`正在加载文件: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`,
 				);
 				const inputData = await fetchFile(file);
 				await this.ffmpeg.writeFile(name, inputData);
 				fileNames.push(name);
-				this.config.onLog?.(`文件 ${name} 已写入 FFmpeg 虚拟文件系统`);
+				this.log(`文件 ${name} 已写入 FFmpeg 虚拟文件系统`);
 			}
 
-			this.config.onLog?.(`执行 FFmpeg 命令: ffmpeg ${ffmpegArgs.join(" ")}`);
+			this.log(`执行 FFmpeg 命令: ffmpeg ${ffmpegArgs.join(" ")}`);
 
 			// 执行命令
 			await this.ffmpeg.exec(ffmpegArgs);

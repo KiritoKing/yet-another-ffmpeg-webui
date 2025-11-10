@@ -62,11 +62,17 @@ export class FFmpegWorkerPool implements FFmpegProvider {
 
 		const createOne = async (index: number) => {
 			const instanceId = `worker-${index + 1}`;
-			const service = new FFmpegService({
-				mode: this.options.mode,
-				onLog: (msg) => this.options.onLog?.(msg, instanceId),
-				// 进度可按需路由，这里仅透传日志，避免与任务绑定造成混乱
-			});
+			const service = new FFmpegService(
+				{
+					mode: this.options.mode,
+					onLog: (msg, id) => {
+						// 直接透传，外部会处理日志类型
+						this.options.onLog?.(msg, id);
+					},
+					// 进度可按需路由，这里仅透传日志，避免与任务绑定造成混乱
+				},
+				instanceId,
+			);
 			await service.load();
 			this.workers.push(service);
 			this.available.push(service);

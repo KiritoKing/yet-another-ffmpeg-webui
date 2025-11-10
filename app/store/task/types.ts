@@ -23,6 +23,9 @@ export interface TaskState {
 	// 是否正在处理队列
 	isProcessingQueue: boolean;
 
+	// 是否正在启动队列（准备阶段）
+	isStartingQueue: boolean;
+
 	// 队列初始大小，用于计算总体进度
 	initialQueueSize: number;
 
@@ -56,6 +59,7 @@ export interface TaskState {
 	updateExecutingTask: (taskId: string, updates: Partial<Task>) => void;
 
 	setProcessingQueue: (isProcessing: boolean) => void;
+	setStartingQueue: (isStarting: boolean) => void;
 	setInitialQueueSize: (size: number) => void;
 
 	// 任务结果管理

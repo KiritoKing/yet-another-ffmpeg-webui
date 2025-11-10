@@ -52,6 +52,8 @@ export function useTaskManager(
 		getTaskResult,
 		clearTaskResult,
 		setProcessingQueue,
+		setStartingQueue,
+		setInitialQueueSize,
 	} = useTaskStore();
 
 	/**
@@ -309,9 +311,10 @@ export function useTaskManager(
 		}
 
 		try {
-			setProcessingQueue(true);
+			// 先设置启动状态（显示loading）
+			setStartingQueue(true);
 			addLog(
-				`开始处理队列 (${queue.length} 个任务) 并发=${queueConfig.batchSize}`,
+				`准备处理队列 (${queue.length} 个任务) 并发=${queueConfig.batchSize}`,
 				"info",
 			);
 
@@ -363,9 +366,22 @@ export function useTaskManager(
 
 			queueProcessorRef.current = processor;
 
+			// 保存初始队列大小并开始处理
+			if (queue.length > 0) {
+				setInitialQueueSize(queue.length);
+			}
+
 			// 添加所有任务到处理器
 			processor.addTasks([...queue]);
 			clearQueue();
+
+			// 切换到处理状态（loading -> processing）
+			setStartingQueue(false);
+			setProcessingQueue(true);
+			addLog(
+				`开始处理队列 (${queue.length} 个任务) 并发=${queueConfig.batchSize}`,
+				"info",
+			);
 
 			// 开始处理（内部并发）
 			await processor.start();
@@ -377,6 +393,7 @@ export function useTaskManager(
 			addLog(`队列处理失败: ${errorMsg}`, "error");
 			toast.error(`队列处理失败: ${errorMsg}`);
 		} finally {
+			setStartingQueue(false);
 			setProcessingQueue(false);
 			queueProcessorRef.current = null;
 		}
@@ -396,6 +413,8 @@ export function useTaskManager(
 		addExecutingTask,
 		removeExecutingTask,
 		updateExecutingTask,
+		setInitialQueueSize,
+		setStartingQueue,
 	]);
 
 	/**

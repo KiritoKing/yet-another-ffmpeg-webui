@@ -7,6 +7,7 @@ import {
 	DownloadIcon,
 	Eye,
 	FileUp,
+	Loader2,
 	Play,
 	Plus,
 	Settings,
@@ -79,6 +80,7 @@ export function ExecutionPanel({
 		executingTasks,
 		completedTasks,
 		isProcessingQueue,
+		isStartingQueue,
 		batchSize,
 		initialQueueSize,
 		removeFromQueue,
@@ -104,10 +106,10 @@ export function ExecutionPanel({
 		initialQueueSize > 0
 			? initialQueueSize
 			: queue.length + executingTasks.length;
-	const completedCount = Math.max(
-		0,
-		totalTasks - queue.length - executingTasks.length,
-	);
+
+	// 使用已完成的任务数量计算进度，这样更准确
+	const completedCount = completedTasks.length;
+
 	const overallProgress =
 		totalTasks > 0 ? (completedCount / totalTasks) * 100 : 0;
 
@@ -286,7 +288,7 @@ export function ExecutionPanel({
 
 						{/* 队列控制按钮 */}
 						<div className="flex gap-2 mb-4">
-							{!isProcessingQueue ? (
+							{!isProcessingQueue && !isStartingQueue ? (
 								<Button
 									onClick={onStartQueue}
 									disabled={queue.length === 0}
@@ -295,6 +297,11 @@ export function ExecutionPanel({
 								>
 									<Play className="w-4 h-4 mr-2" />
 									开始处理队列 ({queue.length})
+								</Button>
+							) : isStartingQueue ? (
+								<Button disabled size="sm" className="flex-1">
+									<Loader2 className="w-4 h-4 mr-2 animate-spin" />
+									准备中...
 								</Button>
 							) : (
 								<Button

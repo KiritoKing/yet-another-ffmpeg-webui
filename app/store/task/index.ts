@@ -19,6 +19,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 		maxRetries: 0,
 	},
 	isProcessingQueue: false,
+	isStartingQueue: false,
 	initialQueueSize: 0,
 	taskResults: new Map(),
 
@@ -270,8 +271,11 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 	setProcessingQueue: (isProcessing) =>
 		set({
 			isProcessingQueue: isProcessing,
-			// 如果开始处理，重置初始队列大小；结束时保持不变
-			initialQueueSize: isProcessing ? get().queue.length : 0,
+		}),
+
+	setStartingQueue: (isStarting) =>
+		set({
+			isStartingQueue: isStarting,
 		}),
 
 	setInitialQueueSize: (size) => set({ initialQueueSize: size }),

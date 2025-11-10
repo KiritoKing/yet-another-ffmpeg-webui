@@ -12,6 +12,7 @@ export function useQueueOperations() {
 		(state) => state.recentCompletedTasks,
 	);
 	const isProcessingQueue = useTaskStore((state) => state.isProcessingQueue);
+	const isStartingQueue = useTaskStore((state) => state.isStartingQueue);
 	const batchSize = useTaskStore((state) => state.queueConfig.batchSize);
 	const initialQueueSize = useTaskStore((state) => state.initialQueueSize);
 
@@ -50,6 +51,7 @@ export function useQueueOperations() {
 		executingTasks,
 		completedTasks: recentCompletedTasks,
 		isProcessingQueue,
+		isStartingQueue,
 		batchSize,
 		initialQueueSize,
 

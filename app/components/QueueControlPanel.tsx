@@ -3,6 +3,7 @@ import {
 	Download,
 	Eye,
 	FileUp,
+	Loader2,
 	Play,
 	Settings,
 	Square,
@@ -36,6 +37,7 @@ interface QueueControlPanelProps {
 	executingTasks: Task[];
 	completedTasks?: Task[]; // 最近完成的任务（可选）
 	isProcessing: boolean;
+	isStarting: boolean;
 	batchSize: number;
 	initialQueueSize?: number; // 队列初始大小，用于计算总体进度
 	onStart: () => void;
@@ -56,6 +58,7 @@ export function QueueControlPanel({
 	executingTasks,
 	completedTasks = [],
 	isProcessing,
+	isStarting,
 	batchSize,
 	initialQueueSize = 0,
 	onStart,
@@ -75,15 +78,14 @@ export function QueueControlPanel({
 	const previewUrl = previewTaskId ? getTaskResultUrl?.(previewTaskId) : null;
 
 	// 计算总体进度
-	// 使用初始队列大小计算进度，而不是当前的 queue + executingTasks
 	const totalTasks =
 		initialQueueSize > 0
 			? initialQueueSize
 			: queue.length + executingTasks.length;
-	const completedCount = Math.max(
-		0,
-		totalTasks - queue.length - executingTasks.length,
-	);
+
+	// 使用已完成的任务数量计算进度，这样更准确
+	const completedCount = completedTasks?.length || 0;
+
 	const overallProgress =
 		totalTasks > 0 ? (completedCount / totalTasks) * 100 : 0;
 
@@ -121,10 +123,15 @@ export function QueueControlPanel({
 					</div>
 
 					<div className="flex gap-2">
-						{!isProcessing ? (
+						{!isProcessing && !isStarting ? (
 							<Button onClick={onStart} disabled={queue.length === 0} size="sm">
 								<Play className="w-4 h-4 mr-2" />
 								开始处理
+							</Button>
+						) : isStarting ? (
+							<Button disabled size="sm">
+								<Loader2 className="w-4 h-4 mr-2 animate-spin" />
+								准备中...
 							</Button>
 						) : (
 							<Button onClick={onStop} variant="destructive" size="sm">
