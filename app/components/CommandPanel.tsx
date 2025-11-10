@@ -67,7 +67,7 @@ export function CommandPanel({
 
 	return (
 		<>
-			<Card className="h-[calc(100vh-10rem)] flex flex-col">
+			<Card id="command-panel" className="h-[calc(100vh-10rem)] flex flex-col">
 				<div className="px-4 py-3 border-b space-y-3">
 					<div className="flex items-center justify-between">
 						<h2 className="text-sm font-semibold">命令预设</h2>

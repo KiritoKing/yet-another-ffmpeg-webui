@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <!-- 首页 -->
+  <url>
+    <loc>https://ffmpeg-easy.vercel.app/</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://ffmpeg-easy.vercel.app/" />
+    <lastmod>2025-11-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <info>
+      <title>FFmpeg Easy - 简单易用的在线视频处理工具</title>
+      <description>专业的在线视频处理工具，支持视频格式转换、压缩、旋转等功能。基于WebAssembly技术，完全在浏览器中运行，文件无需上传到服务器。</description>
+      <keywords>FFmpeg, 视频处理, 在线视频转换, 视频压缩, 格式转换, MP4转换, 视频裁剪, 视频旋转, WebAssembly, 浏览器工具</keywords>
+    </info>
+  </url>
+
+  <!-- 主要功能页面 -->
+  <url>
+    <loc>https://ffmpeg-easy.vercel.app/ffmpeg-web</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://ffmpeg-easy.vercel.app/ffmpeg-web" />
+    <lastmod>2025-11-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <info>
+      <title>FFmpeg Web - 在线视频处理主界面</title>
+      <description>FFmpeg Web 主界面，提供完整的视频处理功能，包括格式转换、压缩、旋转、裁剪等。支持批量处理和实时进度显示。</description>
+      <keywords>在线视频转换, 视频压缩, 格式转换, 批量处理, 实时进度, WebAssembly</keywords>
+    </info>
+  </url>
+
+  <!-- 首页备用域名 -->
+  <url>
+    <loc>https://ffmpeg-easy.com/</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://ffmpeg-easy.com/" />
+    <lastmod>2025-11-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://ffmpeg-easy.com/ffmpeg-web</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://ffmpeg-easy.com/ffmpeg-web" />
+    <lastmod>2025-11-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+</urlset>

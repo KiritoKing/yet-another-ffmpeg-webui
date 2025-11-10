@@ -49,6 +49,14 @@ export function InitializationDialog({
 		<div className="fixed inset-0 bg-linear-to-br from-purple-50 to-blue-50 flex items-center justify-center p-4 z-50">
 			<Card className="p-8 max-w-lg w-full shadow-2xl">
 				<div className="text-center mb-6">
+					{/* 品牌插画 */}
+					<div className="flex justify-center mb-4">
+						<img
+							src="/ffmpeg-easy-hero.png"
+							alt="FFmpeg Easy - 在浏览器中处理视频"
+							className="w-64 h-auto"
+						/>
+					</div>
 					<h2 className="text-3xl font-bold text-gray-900 mb-2">
 						欢迎使用 FFmpeg Web
 					</h2>

@@ -122,7 +122,7 @@ export function BatchFileUpload({
 	const totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
 
 	return (
-		<Card className="p-6">
+		<Card id="batch-upload" className="p-6">
 			<div className="space-y-4">
 				{/* 标题 */}
 				<div className="flex items-center justify-between">

@@ -1,0 +1,37 @@
+# FFmpeg Easy - Robots.txt
+# 在线视频处理工具
+
+User-agent: *
+Allow: /
+
+# 禁止搜索引擎索引系统目录
+Disallow: /api/
+Disallow: /cdn-cgi/
+Disallow: /_next/
+Disallow: /static/
+Disallow: /*.json$
+Disallow: /check-headers.html
+
+# 特殊搜索引擎规则
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Baiduspider
+Allow: /
+Crawl-delay: 1
+
+User-agent: Yandexbot
+Allow: /
+Crawl-delay: 1
+
+# 允许图片搜索引擎
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Baiduspider-image
+Allow: /
+
+# 网站地图
+Sitemap: https://ffmpeg-easy.vercel.app/sitemap.xml
+Sitemap: https://ffmpeg-easy.com/sitemap.xml

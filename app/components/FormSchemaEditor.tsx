@@ -48,7 +48,7 @@ export function FormSchemaEditor({
 	const unusedDeclared = declaredVars.filter((v) => !usedVariables.includes(v));
 
 	return (
-		<div className="space-y-3">
+		<div id="custom-form-editor" className="space-y-3">
 			<div className="flex items-center justify-between">
 				<Label className="font-medium">表单字段配置</Label>
 				<Button

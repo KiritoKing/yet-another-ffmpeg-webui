@@ -10,6 +10,10 @@ import { useCDNStore } from "../store/cdn";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 
+/**
+ * FFmpeg Web 页面顶部工具栏
+ * 包含加载、设置、导入导出等功能
+ */
 interface FFmpegToolbarProps {
 	loaded: boolean;
 	loading: boolean;
@@ -18,11 +22,13 @@ interface FFmpegToolbarProps {
 	onLoadFFmpeg: () => void;
 	onReloadFFmpeg: () => void;
 	onShowSettings: () => void;
+	onStartBasicTour?: () => void;
+	onStartAdvancedTour?: () => void;
 }
 
 /**
  * FFmpeg Web 页面顶部工具栏
- * 包含加载、设置、导入导出等功能
+ * 包含加载、设置、帮助等功能
  */
 export function FFmpegToolbar({
 	loaded,
@@ -32,6 +38,8 @@ export function FFmpegToolbar({
 	onLoadFFmpeg,
 	onReloadFFmpeg,
 	onShowSettings,
+	onStartBasicTour,
+	onStartAdvancedTour,
 }: FFmpegToolbarProps) {
 	const { config, getBestProvider } = useCDNStore();
 	const best = getBestProvider();
@@ -40,7 +48,10 @@ export function FFmpegToolbar({
 		: `CDN: ${best?.name || (config.selectedProviderId ? config.selectedProviderId : "未选择")}`;
 	const versionLabel = `v${config.ffmpegVersion}`;
 	return (
-		<header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+		<header
+			id="ffmpeg-toolbar"
+			className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60"
+		>
 			<div className="max-w-7xl mx-auto px-4 py-3">
 				<div className="flex items-center justify-between">
 					<div>
@@ -63,7 +74,14 @@ export function FFmpegToolbar({
 					</div>
 
 					<div className="flex items-center gap-2">
+						{/* 帮助菜单 */}
+						{/* <HelpMenu
+							onStartBasicTour={onStartBasicTour || (() => {})}
+							onStartAdvancedTour={onStartAdvancedTour}
+						/> */}
+
 						<Button
+							id="settings-button"
 							variant="ghost"
 							size="sm"
 							onClick={onShowSettings}

@@ -157,7 +157,7 @@ export function ExecutionPanel({
 	return (
 		<div className="space-y-6">
 			{/* 1. 命令信息和表单 */}
-			<Card className="p-6">
+			<Card id="execution-panel" className="p-6">
 				<div className="flex items-start justify-between mb-4">
 					<div>
 						<h2 className="text-xl font-bold">{selectedPreset.name}</h2>
@@ -239,13 +239,17 @@ export function ExecutionPanel({
 			{/* 2. 标签页：队列和历史 */}
 			<Tabs defaultValue="queue" className="w-full">
 				<TabsList className="grid w-full grid-cols-2">
-					<TabsTrigger value="queue">任务队列</TabsTrigger>
-					<TabsTrigger value="history">任务历史</TabsTrigger>
+					<TabsTrigger id="queue-tab" value="queue">
+						任务队列
+					</TabsTrigger>
+					<TabsTrigger id="history-tab" value="history">
+						任务历史
+					</TabsTrigger>
 				</TabsList>
 
 				{/* 队列标签页 */}
 				<TabsContent value="queue" className="mt-6">
-					<Card className="p-6">
+					<Card id="queue-panel" className="p-6">
 						{/* 批处理和队列控制 */}
 						<div className="flex items-center justify-between mb-4">
 							<div>
@@ -530,7 +534,9 @@ export function ExecutionPanel({
 
 				{/* 历史标签页 */}
 				<TabsContent value="history" className="mt-6">
-					<TaskHistoryViewer />
+					<div id="task-history">
+						<TaskHistoryViewer />
+					</div>
 				</TabsContent>
 			</Tabs>
 

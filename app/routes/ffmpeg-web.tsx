@@ -11,6 +11,8 @@ import { ResetConfirmDialog } from "../components/ResetConfirmDialog";
 import { SettingsDialog } from "../components/SettingsDialog";
 import { Card } from "../components/ui/card";
 import { useFFmpegWeb } from "../hooks/useFFmpegWeb";
+// import { useOnboarding } from "../hooks/useOnboarding";
+// import { driverService } from "../services/driver";
 import { useCDNStore } from "../store/cdn";
 import { useCommandStore } from "../store/command";
 import { useFFmpegWebStore } from "../store/ffmpegWeb";
@@ -21,6 +23,10 @@ import type { CommandPreset } from "../types/command";
  * 重构后的版本：数据层、逻辑层、视图层分离
  */
 export default function FFmpegWeb() {
+	// 新手引导
+	// const { startBasicTour, startAdvancedTour, checkAndStartOnboarding } =
+	// useOnboarding();
+
 	// Store 状态
 	const {
 		isClient,
@@ -81,6 +87,13 @@ export default function FFmpegWeb() {
 		deletePreset,
 		taskManager,
 	} = useFFmpegWeb();
+
+	// // 自动引导逻辑
+	// useEffect(() => {
+	// 	if (isClient && loaded && !driverService.isRunning()) {
+	// 		checkAndStartOnboarding();
+	// 	}
+	// }, [isClient, loaded, checkAndStartOnboarding]);
 
 	// 初始化分类筛选（全选）
 	// biome-ignore lint/correctness/useExhaustiveDependencies: setSelectedCategories 是稳定的 zustand setter
@@ -205,6 +218,8 @@ export default function FFmpegWeb() {
 				onLoadFFmpeg={loadFFmpeg}
 				onReloadFFmpeg={handleReloadFFmpeg}
 				onShowSettings={() => setShowSettings(true)}
+				// onStartBasicTour={startBasicTour}
+				// onStartAdvancedTour={startAdvancedTour}
 			/>
 
 			{/* 主内容区域 */}
