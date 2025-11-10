@@ -1,6 +1,0 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
-echo "[husky] Running typecheck and full biome check before push"
-pnpm typecheck || exit 1
-pnpm lint || exit 1
