@@ -645,7 +645,7 @@ export function CommandBatchManager({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0">
+			<DialogContent className="max-w-[95vw] lg:max-w-4xl h-[85vh] flex flex-col p-0">
 				<div className="px-6 pt-6 pb-4 shrink-0">
 					<DialogHeader>
 						<DialogTitle>批量管理命令</DialogTitle>

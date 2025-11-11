@@ -7,6 +7,7 @@ import {
 	SettingsIcon,
 } from "lucide-react";
 import { useCDNStore } from "../store/cdn";
+import { ThemeToggle } from "./ThemeToggle";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 
@@ -38,8 +39,6 @@ export function FFmpegToolbar({
 	onLoadFFmpeg,
 	onReloadFFmpeg,
 	onShowSettings,
-	onStartBasicTour,
-	onStartAdvancedTour,
 }: FFmpegToolbarProps) {
 	const { config, getBestProvider } = useCDNStore();
 	const best = getBestProvider();
@@ -79,6 +78,9 @@ export function FFmpegToolbar({
 							onStartBasicTour={onStartBasicTour || (() => {})}
 							onStartAdvancedTour={onStartAdvancedTour}
 						/> */}
+
+						{/* 主题切换 */}
+						<ThemeToggle />
 
 						<Button
 							id="settings-button"

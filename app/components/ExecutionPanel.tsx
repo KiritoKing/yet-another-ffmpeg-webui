@@ -229,11 +229,12 @@ export function ExecutionPanel({
 					<Button
 						onClick={onExecute}
 						disabled={!hasRequiredFiles}
-						className="flex-1"
+						className="flex-1 h-11 lg:h-10 touch-manipulation"
 						size="lg"
 					>
 						<Plus className="mr-2" />
-						提交任务到队列
+						<span className="hidden sm:inline">提交任务到队列</span>
+						<span className="sm:hidden">提交任务</span>
 					</Button>
 				</div>
 			</Card>
@@ -263,15 +264,20 @@ export function ExecutionPanel({
 						</div>
 
 						{/* 批处理大小设置 */}
-						<div className="flex items-center gap-4 p-3 bg-muted rounded mb-4">
-							<Settings className="w-4 h-4" />
-							<Label htmlFor="batch-size-exec">并发数:</Label>
+						<div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 bg-muted rounded mb-4">
+							<Settings className="w-4 h-4 hidden sm:block" />
+							<Label htmlFor="batch-size-exec" className="sm:whitespace-nowrap">
+								并发数:
+							</Label>
 							<Select
 								value={batchSize.toString()}
 								onValueChange={(value) => setBatchSize(Number(value))}
 								disabled={isProcessingQueue}
 							>
-								<SelectTrigger id="batch-size-exec" className="w-24">
+								<SelectTrigger
+									id="batch-size-exec"
+									className="w-full sm:w-24 h-11 lg:h-10"
+								>
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
@@ -287,19 +293,19 @@ export function ExecutionPanel({
 						</div>
 
 						{/* 队列控制按钮 */}
-						<div className="flex gap-2 mb-4">
+						<div className="flex flex-col sm:flex-row gap-2 mb-4">
 							{!isProcessingQueue && !isStartingQueue ? (
 								<Button
 									onClick={onStartQueue}
 									disabled={queue.length === 0}
 									size="sm"
-									className="flex-1"
+									className="flex-1 h-11 lg:h-9 touch-manipulation"
 								>
 									<Play className="w-4 h-4 mr-2" />
 									开始处理队列 ({queue.length})
 								</Button>
 							) : isStartingQueue ? (
-								<Button disabled size="sm" className="flex-1">
+								<Button disabled size="sm" className="flex-1 h-11 lg:h-9">
 									<Loader2 className="w-4 h-4 mr-2 animate-spin" />
 									准备中...
 								</Button>
@@ -308,7 +314,7 @@ export function ExecutionPanel({
 									onClick={onStopQueue}
 									variant="destructive"
 									size="sm"
-									className="flex-1"
+									className="flex-1 h-11 lg:h-9 touch-manipulation"
 								>
 									<Square className="w-4 h-4 mr-2" />
 									停止
@@ -319,6 +325,7 @@ export function ExecutionPanel({
 								variant="outline"
 								size="sm"
 								disabled={isProcessingQueue || queue.length === 0}
+								className="h-11 lg:h-9 touch-manipulation"
 							>
 								<Trash2 className="w-4 h-4 mr-2" />
 								清空
@@ -386,7 +393,11 @@ export function ExecutionPanel({
 						{queue.length > 0 && (
 							<Collapsible open={showQueue} onOpenChange={setShowQueue}>
 								<CollapsibleTrigger asChild>
-									<Button variant="ghost" size="sm" className="w-full mb-2">
+									<Button
+										variant="ghost"
+										size="sm"
+										className="w-full mb-2 h-11 lg:h-9 touch-manipulation"
+									>
 										{showQueue ? (
 											<>
 												<ChevronUp className="w-4 h-4 mr-2" />
@@ -405,18 +416,18 @@ export function ExecutionPanel({
 										{queue.map((task, index) => (
 											<div
 												key={task.id}
-												className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded"
+												className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded gap-2"
 											>
-												<div className="flex-1">
+												<div className="flex-1 min-w-0">
 													<div className="flex items-center gap-2">
 														<span className="text-sm text-gray-500">
 															#{index + 1}
 														</span>
-														<span className="font-medium">
+														<span className="font-medium truncate">
 															{task.presetName}
 														</span>
 													</div>
-													<div className="text-sm text-gray-500">
+													<div className="text-sm text-gray-500 truncate">
 														{task.inputFiles.map((f) => f.name).join(", ")}
 													</div>
 												</div>
@@ -425,6 +436,7 @@ export function ExecutionPanel({
 													size="sm"
 													onClick={() => removeFromQueue(task.id)}
 													disabled={isProcessingQueue}
+													className="h-11 w-11 lg:h-8 lg:w-8 touch-manipulation self-end sm:self-auto shrink-0"
 												>
 													<Trash2 className="w-4 h-4" />
 												</Button>
@@ -444,7 +456,11 @@ export function ExecutionPanel({
 									onOpenChange={setShowCompleted}
 								>
 									<CollapsibleTrigger asChild>
-										<Button variant="ghost" size="sm" className="w-full mb-2">
+										<Button
+											variant="ghost"
+											size="sm"
+											className="w-full mb-2 h-11 lg:h-9 touch-manipulation"
+										>
 											{showCompleted ? (
 												<>
 													<ChevronUp className="w-4 h-4 mr-2" />
@@ -477,33 +493,34 @@ export function ExecutionPanel({
 												return (
 													<div
 														key={task.id}
-														className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded"
+														className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded gap-2"
 													>
-														<div className="flex-1">
-															<div className="flex items-center gap-2">
-																<CheckCircle className="w-4 h-4 text-green-600" />
-																<span className="font-medium">
+														<div className="flex-1 min-w-0">
+															<div className="flex items-center gap-2 flex-wrap">
+																<CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
+																<span className="font-medium truncate">
 																	{task.presetName}
 																</span>
 																{task.outputSize && (
-																	<span className="text-sm text-gray-500">
+																	<span className="text-sm text-gray-500 shrink-0">
 																		{(task.outputSize / 1024 / 1024).toFixed(2)}{" "}
 																		MB
 																	</span>
 																)}
 															</div>
-															<div className="text-sm text-gray-500">
+															<div className="text-sm text-gray-500 truncate">
 																{task.inputFiles.map((f) => f.name).join(", ")}{" "}
 																→ {task.outputFileName}
 															</div>
 														</div>
-														<div className="flex gap-1">
+														<div className="flex gap-1 self-end sm:self-auto shrink-0">
 															{canPreview && (
 																<Button
 																	variant="ghost"
 																	size="sm"
 																	onClick={() => setPreviewTaskId(task.id)}
 																	title="预览"
+																	className="h-11 w-11 lg:h-8 lg:w-8 touch-manipulation"
 																>
 																	<Eye className="w-4 h-4" />
 																</Button>
@@ -513,6 +530,7 @@ export function ExecutionPanel({
 																size="sm"
 																onClick={() => downloadTaskResult(task.id)}
 																title="下载"
+																className="h-11 w-11 lg:h-8 lg:w-8 touch-manipulation"
 															>
 																<DownloadIcon className="w-4 h-4" />
 															</Button>
@@ -556,10 +574,12 @@ export function ExecutionPanel({
 					open={!!previewTaskId}
 					onOpenChange={() => setPreviewTaskId(null)}
 				>
-					<DialogContent className="max-w-4xl max-h-[90vh]">
+					<DialogContent className="max-w-[95vw] lg:max-w-4xl max-h-[90vh] p-4 lg:p-6">
 						<DialogHeader>
-							<DialogTitle>{previewTask.presetName}</DialogTitle>
-							<DialogDescription>
+							<DialogTitle className="text-lg lg:text-xl">
+								{previewTask.presetName}
+							</DialogTitle>
+							<DialogDescription className="text-sm">
 								{previewTask.inputFiles.map((f) => f.name).join(", ")} →{" "}
 								{previewTask.outputFileName}
 								{previewTask.outputSize && (

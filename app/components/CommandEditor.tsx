@@ -147,7 +147,7 @@ export function CommandEditor({
 				)}
 
 				{/* 基本信息 */}
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+				<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 					<div className="space-y-2">
 						<Label htmlFor="name">
 							命令名称{" "}
@@ -160,13 +160,14 @@ export function CommandEditor({
 							value={name}
 							onChange={(e) => setName(e.target.value)}
 							placeholder="例如：转换为 WebM"
+							className="h-11 lg:h-10 text-base"
 						/>
 					</div>
 
 					<div className="space-y-2">
 						<Label htmlFor="category">分类</Label>
 						<Select value={category} onValueChange={setCategory}>
-							<SelectTrigger id="category">
+							<SelectTrigger id="category" className="h-11 lg:h-10 text-base">
 								<SelectValue placeholder="选择分类" />
 							</SelectTrigger>
 							<SelectContent>
@@ -191,6 +192,7 @@ export function CommandEditor({
 						}
 						rows={2}
 						placeholder="简要描述此命令的功能..."
+						className="min-h-[88px] lg:min-h-16 text-base"
 					/>
 				</div>
 
@@ -204,7 +206,7 @@ export function CommandEditor({
 
 				{/* FFmpeg 参数 */}
 				<div className="space-y-2">
-					<div className="flex items-center justify-between">
+					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
 						<Label htmlFor="ffmpegArgs" className="flex items-center gap-2">
 							FFmpeg 参数 <Badge variant="destructive">必填</Badge>
 						</Label>
@@ -213,6 +215,7 @@ export function CommandEditor({
 							size="sm"
 							type="button"
 							onClick={() => setShowFormEditor((s) => !s)}
+							className="h-11 lg:h-8 w-full sm:w-auto touch-manipulation"
 						>
 							{showFormEditor ? "隐藏表单编辑器" : "显示表单编辑器"}
 						</Button>
@@ -228,11 +231,20 @@ export function CommandEditor({
 				<Separator />
 
 				{/* 按钮 */}
-				<div className="flex justify-end gap-3">
-					<Button type="button" variant="outline" onClick={onCancel}>
+				<div className="flex flex-col sm:flex-row justify-end gap-3">
+					<Button
+						type="button"
+						variant="outline"
+						onClick={onCancel}
+						className="h-11 lg:h-10 touch-manipulation"
+					>
 						取消
 					</Button>
-					<Button type="button" onClick={handleSave}>
+					<Button
+						type="button"
+						onClick={handleSave}
+						className="h-11 lg:h-10 touch-manipulation"
+					>
 						保存
 					</Button>
 				</div>

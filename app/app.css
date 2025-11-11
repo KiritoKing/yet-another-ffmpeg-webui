@@ -128,6 +128,10 @@ body {
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
+		/* 平滑的主题切换过渡效果 */
+		transition: background-color 150ms ease-in-out, 
+		            border-color 150ms ease-in-out,
+		            color 150ms ease-in-out;
 	}
 	body {
 		@apply bg-background text-foreground;

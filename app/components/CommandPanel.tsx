@@ -76,14 +76,19 @@ export function CommandPanel({
 								variant="outline"
 								size="sm"
 								onClick={() => setShowBatchManager(true)}
-								className="h-8"
+								className="h-11 lg:h-8"
 							>
 								<ListOrdered className="h-3.5 w-3.5 mr-1.5" />
-								批量管理
+								<span className="hidden sm:inline">批量管理</span>
+								<span className="sm:hidden">管理</span>
 							</Button>
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
-									<Button variant="outline" size="sm" className="h-8 px-2">
+									<Button
+										variant="outline"
+										size="sm"
+										className="h-11 w-11 lg:h-8 lg:w-auto lg:px-2 p-0"
+									>
 										<MoreHorizontal className="h-4 w-4" />
 									</Button>
 								</DropdownMenuTrigger>
@@ -110,16 +115,16 @@ export function CommandPanel({
 					</div>
 					{/* 搜索框 */}
 					<div className="relative">
-						<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+						<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
 						<Input
 							placeholder="搜索命令..."
-							className="pl-9 h-9"
+							className="pl-9 h-11 lg:h-9 text-base"
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
 						/>
 					</div>
 				</div>
-				<div className="flex-1 overflow-hidden p-4">
+				<div className="flex-1 overflow-hidden p-3 lg:p-4">
 					<CommandList
 						presets={presets}
 						categoryOrder={categoryOrder}

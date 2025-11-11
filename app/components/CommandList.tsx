@@ -152,7 +152,7 @@ export function CommandList({
 									value={category}
 									className="border! rounded-lg px-2"
 								>
-									<AccordionTrigger className="text-sm font-semibold hover:no-underline py-3">
+									<AccordionTrigger className="text-sm font-semibold hover:no-underline py-4 lg:py-3 min-h-[60px] lg:min-h-0">
 										<div className="flex items-center gap-2">
 											{getCategoryIcon(category)}
 											<span>{category}</span>
@@ -175,19 +175,19 @@ export function CommandList({
 													<div key={preset.id} className="group relative">
 														<button
 															type="button"
-															className={`w-full flex items-center justify-between rounded-md transition-all text-left pr-2 ${
+															className={`w-full flex items-center justify-between rounded-md transition-all text-left min-h-[60px] lg:min-h-0 ${
 																isSelected
 																	? "bg-primary/10 border-2 border-primary"
-																	: "hover:bg-accent/50 border-2 border-transparent"
+																	: "hover:bg-accent/50 border-2 border-transparent active:bg-accent/70"
 															}`}
 															onClick={() => onSelect(preset)}
 														>
 															{/* 主内容区 */}
-															<div className="flex items-start gap-2 flex-1 min-w-0 p-3 pr-0">
+															<div className="flex items-start gap-2 flex-1 min-w-0 p-3 lg:p-3 pr-20 lg:pr-0">
 																{getCommandIcon(preset.name)}
 																<div className="flex flex-col items-start flex-1 min-w-0">
 																	<div className="flex items-center gap-2 w-full">
-																		<span className="font-medium text-sm truncate">
+																		<span className="font-medium text-sm lg:text-sm truncate">
 																			{preset.name}
 																		</span>
 																		{hasMultiple && (
@@ -200,50 +200,50 @@ export function CommandList({
 																		)}
 																	</div>
 																	{preset.description && (
-																		<span className="text-xs text-muted-foreground mt-1 line-clamp-2 text-left pr-24">
+																		<span className="text-xs text-muted-foreground mt-1 line-clamp-2 text-left lg:pr-24">
 																			{preset.description}
 																		</span>
 																	)}
 																</div>
 															</div>
 
-															{/* 操作按钮区 - 绝对定位在右侧 */}
-															<div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/95 backdrop-blur-sm rounded-md p-1 shadow-sm">
+															{/* 操作按钮区 - 移动端始终显示，桌面端悬停显示 */}
+															<div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity bg-background/95 backdrop-blur-sm rounded-md p-1 shadow-sm">
 																<Button
 																	variant="ghost"
 																	size="icon"
-																	className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+																	className="h-11 w-11 lg:h-7 lg:w-7 hover:bg-primary/10 hover:text-primary touch-manipulation"
 																	onClick={(e) => {
 																		e.stopPropagation();
 																		onEdit(preset);
 																	}}
 																	title="编辑"
 																>
-																	<PencilIcon className="h-3.5 w-3.5" />
+																	<PencilIcon className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
 																</Button>
 																<Button
 																	variant="ghost"
 																	size="icon"
-																	className="h-7 w-7 hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400"
+																	className="h-11 w-11 lg:h-7 lg:w-7 hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400 touch-manipulation"
 																	onClick={(e) => {
 																		e.stopPropagation();
 																		onExport(preset);
 																	}}
 																	title="导出"
 																>
-																	<DownloadIcon className="h-3.5 w-3.5" />
+																	<DownloadIcon className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
 																</Button>
 																<Button
 																	variant="ghost"
 																	size="icon"
-																	className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
+																	className="h-11 w-11 lg:h-7 lg:w-7 hover:bg-destructive/10 hover:text-destructive touch-manipulation"
 																	onClick={(e) => {
 																		e.stopPropagation();
 																		setPresetToDelete(preset);
 																	}}
 																	title="删除"
 																>
-																	<TrashIcon className="h-3.5 w-3.5" />
+																	<TrashIcon className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
 																</Button>
 															</div>
 														</button>

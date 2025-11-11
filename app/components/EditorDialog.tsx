@@ -30,17 +30,17 @@ export function EditorDialog({
 }: EditorDialogProps) {
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-[95vw]! w-fit max-h-[95vh]">
-				<div className="overflow-y-auto max-h-[calc(95vh-8rem)] pr-2">
-					<DialogHeader className="mb-6">
-						<DialogTitle>
+			<DialogContent className="max-w-[95vw] lg:max-w-[95vw] w-full lg:w-fit max-h-[95vh] p-4 lg:p-6">
+				<div className="overflow-y-auto max-h-[calc(95vh-8rem)] pr-1 lg:pr-2">
+					<DialogHeader className="mb-4 lg:mb-6">
+						<DialogTitle className="text-lg lg:text-xl">
 							{editingPreset
 								? editingPreset.id.startsWith("temp_")
 									? "完善 CLI 导入的命令"
 									: "编辑命令"
 								: "新建命令"}
 						</DialogTitle>
-						<DialogDescription>
+						<DialogDescription className="text-sm">
 							{editingPreset?.id.startsWith("temp_")
 								? "已从 CLI 命令解析基本信息，请完善命令名称、描述等详细信息"
 								: "配置 FFmpeg 命令参数和输入输出文件"}

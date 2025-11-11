@@ -7,10 +7,13 @@ import { ExecutionPanel } from "../components/ExecutionPanel";
 import { FFmpegToolbar } from "../components/FFmpegToolbar";
 import { Footer } from "../components/Footer";
 import { InitializationDialog } from "../components/InitializationDialog";
+import { MobileHeader } from "../components/MobileHeader";
+import { MobileNav } from "../components/MobileNav";
 import { ResetConfirmDialog } from "../components/ResetConfirmDialog";
 import { SettingsDialog } from "../components/SettingsDialog";
 import { Card } from "../components/ui/card";
 import { useFFmpegWeb } from "../hooks/useFFmpegWeb";
+import { useTheme } from "../hooks/useTheme";
 // import { useOnboarding } from "../hooks/useOnboarding";
 // import { driverService } from "../services/driver";
 import { useCDNStore } from "../store/cdn";
@@ -60,6 +63,9 @@ export default function FFmpegWeb() {
 	const bestProvider = getBestProvider();
 	const [showCDNSelector, setShowCDNSelector] = useState(false);
 
+	// 移动端导航状态
+	const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
 	const {
 		presets,
 		categoryOrder,
@@ -87,6 +93,9 @@ export default function FFmpegWeb() {
 		deletePreset,
 		taskManager,
 	} = useFFmpegWeb();
+
+	// 初始化主题系统
+	useTheme();
 
 	// // 自动引导逻辑
 	// useEffect(() => {
@@ -197,6 +206,17 @@ export default function FFmpegWeb() {
 
 	return (
 		<div className="min-h-screen bg-background">
+			{/* 移动端头部（仅在移动设备显示） */}
+			<MobileHeader onMenuClick={() => setMobileNavOpen(true)} />
+
+			{/* 移动端导航菜单 */}
+			<MobileNav
+				open={mobileNavOpen}
+				onOpenChange={setMobileNavOpen}
+				loaded={loaded}
+				useMultiThread={useMultiThread}
+			/>
+
 			{/* 初始化对话框（如果需要显示） */}
 			{showInitDialog && (
 				<InitializationDialog
@@ -209,25 +229,27 @@ export default function FFmpegWeb() {
 				/>
 			)}
 
-			{/* 顶部工具栏 */}
-			<FFmpegToolbar
-				loaded={loaded}
-				loading={loading}
-				processing={processing}
-				useMultiThread={useMultiThread}
-				onLoadFFmpeg={loadFFmpeg}
-				onReloadFFmpeg={handleReloadFFmpeg}
-				onShowSettings={() => setShowSettings(true)}
-				// onStartBasicTour={startBasicTour}
-				// onStartAdvancedTour={startAdvancedTour}
-			/>
+			{/* 顶部工具栏（在移动端隐藏） */}
+			<div className="hidden lg:block">
+				<FFmpegToolbar
+					loaded={loaded}
+					loading={loading}
+					processing={processing}
+					useMultiThread={useMultiThread}
+					onLoadFFmpeg={loadFFmpeg}
+					onReloadFFmpeg={handleReloadFFmpeg}
+					onShowSettings={() => setShowSettings(true)}
+					// onStartBasicTour={startBasicTour}
+					// onStartAdvancedTour={startAdvancedTour}
+				/>
+			</div>
 
 			{/* 主内容区域 */}
-			<div className="max-w-7xl mx-auto px-4 py-6">
+			<div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6">
 				{loaded ? (
-					<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+					<div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 lg:gap-6">
 						{/* 左侧：命令列表 */}
-						<div className="lg:col-span-1">
+						<div className="w-full lg:col-span-1">
 							<CommandPanel
 								presets={presets}
 								categoryOrder={categoryOrder}
@@ -254,9 +276,10 @@ export default function FFmpegWeb() {
 									setShowEditor(true);
 								}}
 							/>
-						</div>{" "}
+						</div>
+
 						{/* 右侧：执行面板（整合了队列和历史） */}
-						<div className="lg:col-span-2">
+						<div className="w-full lg:col-span-2">
 							<ExecutionPanel
 								onCopyCommand={handleCopyCommand}
 								onExecute={executeCommand}
@@ -266,7 +289,7 @@ export default function FFmpegWeb() {
 						</div>
 					</div>
 				) : (
-					<Card className="p-12 text-center max-w-2xl mx-auto space-y-8">
+					<Card className="p-6 lg:p-12 text-center max-w-2xl mx-auto space-y-6 lg:space-y-8">
 						<svg
 							className="w-20 h-20 mx-auto mb-6 text-muted-foreground"
 							fill="none"
