@@ -104,6 +104,8 @@ export function FormSchemaEditor({
 								size="icon"
 								type="button"
 								onClick={() => removeFormField(index)}
+								className="min-w-11 min-h-11 touch-manipulation"
+								title="删除字段"
 							>
 								<XIcon className="size-4" />
 							</Button>

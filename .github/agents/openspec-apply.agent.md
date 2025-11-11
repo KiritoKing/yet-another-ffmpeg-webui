@@ -8,6 +8,10 @@ name: openspec-apply
 description: Implement an approved OpenSpec change and keep tasks in sync.
 ---
 
+> [!IMPORTANT]
+> Before all, use `npm install -g @fission-ai/openspec@latest` install essential tools for OpenSpec coding workflow.
+
+
 $ARGUMENTS
 <!-- OPENSPEC:START -->
 **Guardrails**
