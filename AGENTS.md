@@ -60,6 +60,7 @@ ffmpeg-easy/
 │   │   ├── ExecutionPanel.tsx  # 执行面板（命令信息+表单+进度+输出）
 │   │   ├── FFmpegToolbar.tsx   # 顶部工具栏组件
 │   │   ├── FFmpegDialogs.tsx   # 对话框组件集合
+│   │   ├── SettingsDialog.tsx  # 设置对话框（使用 SettingsRenderer）
 │   │   ├── InitializationDialog.tsx # 初始化对话框（居中模式选择）
 │   │   ├── ProgressLogViewer.tsx # 优化的进度和日志组件（shadcn/ui）
 │   │   ├── DynamicForm.tsx     # 动态表单组件（基于 JSON Schema）
@@ -70,7 +71,19 @@ ffmpeg-easy/
 │   │   ├── BatchFileUpload.tsx # 批量文件上传组件
 │   │   ├── CDNSelector.tsx     # CDN 配置选择器
 │   │   ├── AGENTS.md           # Components 架构文档
+│   │   ├── settings/       # 设置系统组件（可复用）
+│   │   │   ├── SettingItem.tsx      # 基础包装组件
+│   │   │   ├── SettingSelect.tsx    # 下拉选择（带 store 绑定）
+│   │   │   ├── SettingSwitch.tsx    # 开关切换（带 store 绑定）
+│   │   │   ├── SettingButton.tsx    # 操作按钮
+│   │   │   ├── SettingCard.tsx      # 信息/状态卡片
+│   │   │   ├── SettingStats.tsx     # 存储统计网格
+│   │   │   ├── SettingCustom.tsx    # 自定义内容（About 部分）
+│   │   │   ├── SettingsRenderer.tsx # 主渲染器（策略模式）
+│   │   │   └── index.ts             # 统一导出
 │   │   └── ui/            # shadcn/ui 组件库
+│   ├── config/             # 应用配置
+│   │   └── settings-config.ts # 设置配置（单一数据源）
 │   ├── lib/               # 工具库
 │   │   └── utils.ts       # cn() 等工具函数
 │   ├── hooks/             # 自定义 Hooks
@@ -368,6 +381,29 @@ All documentation has been organized into the `docs/` directory:
 ---
 
 ## 更新日志
+
+### 2025-11-11 - Settings System Refactor 🎨
+- **Single Configuration Source** ✨
+  - Created `app/config/settings-config.ts` as single source of truth
+  - All settings now defined centrally with type safety
+  - Eliminated code duplication between desktop and mobile
+  
+- **Reusable Settings Components** 🔧
+  - Built 7 specialized components: SettingItem, SettingSelect, SettingSwitch, SettingButton, SettingCard, SettingStats, SettingCustom
+  - SettingsRenderer with strategy pattern (dialog/page modes)
+  - Store bindings integrated (ffmpegWeb, task, cdn, command)
+  
+- **Code Reduction** 📉
+  - SettingsDialog.tsx: 611 → 104 lines (83% reduction)
+  - settings.tsx: 548 → 120 lines (78% reduction)
+  - Total: 1159 → 224 lines (80.7% reduction)
+  - Added ~1250 lines of reusable, type-safe infrastructure
+  
+- **Developer Experience** 🚀
+  - Add new settings in one place (config file)
+  - Type-safe configuration with TypeScript
+  - Consistent behavior across desktop/mobile
+  - Easier to maintain and extend
 
 ### 2025-11-09 (v5.0) - Three Major Updates 🎉
 - **Store Refactoring Complete** ✨

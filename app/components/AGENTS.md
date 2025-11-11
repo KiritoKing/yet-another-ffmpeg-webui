@@ -46,9 +46,65 @@ shadcn/ui components based on Radix UI primitives. Do not modify these directly 
 
 - **SettingsDialog.tsx**: 
   - 应用设置对话框（Notion 风格布局）
-  - 左侧导航栏 + 右侧内容区
+  - 使用 SettingsRenderer 组件 (dialog mode)
+  - 2列布局：左侧分类导航 + 右侧内容区
   - 5大分类：通用、性能、存储、CDN、关于
   - 集成 CDNSelector 组件
+  - **重构后**: 从 611 行减少到 104 行 (83%)
+
+#### Settings System (`components/settings/`)
+
+**Settings Configuration** (`config/settings-config.ts`):
+- 单一数据源：所有设置的配置定义
+- 类型定义：`SettingType`, `SettingConfig`, `SettingCategory`, `StoreBinding`
+- 与 Zustand stores 集成：ffmpegWeb, task, cdn, command
+
+**Reusable Components**:
+- **SettingItem**: 基础包装组件（标签、描述、布局）
+- **SettingSelect**: 下拉选择（带 store 绑定）
+- **SettingSwitch**: 开关切换（带 store 绑定）
+- **SettingButton**: 操作按钮
+- **SettingCard**: 信息/状态卡片
+- **SettingStats**: 存储统计网格
+- **SettingCustom**: 自定义内容（About 部分）
+- **SettingsRenderer**: 主渲染器（策略模式）
+  - `mode="dialog"`: 桌面双列布局
+  - `mode="page"`: 移动端平铺布局
+
+**Usage Pattern**:
+```typescript
+<SettingsRenderer
+  mode="dialog" // or "page"
+  categories={settingsCategories}
+  activeCategory={activeCategory}
+  onCategoryChange={setActiveCategory}
+  context={{
+    presetsCount,
+    categoriesCount,
+    storageSize,
+    onResetCommands,
+    onClearHistory,
+    onOpenCDNSelector,
+    isClearing,
+  }}
+/>
+```
+
+**Adding New Settings**:
+只需在 `settings-config.ts` 中添加配置：
+```typescript
+{
+  id: 'my-setting',
+  type: 'switch', // select | switch | button | card | stats | custom
+  title: '设置标题',
+  description: '设置描述',
+  storeBinding: {
+    store: 'ffmpegWeb',
+    key: 'myProperty',
+    setter: 'setMyProperty',
+  },
+}
+```
 
 - **ResetConfirmDialog.tsx**: 
   - 重置命令预设确认对话框
