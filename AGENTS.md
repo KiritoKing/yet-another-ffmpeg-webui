@@ -369,6 +369,41 @@ All documentation has been organized into the `docs/` directory:
 
 ## 更新日志
 
+### 2025-01-13 (v7.0) - Native FFmpeg Driver (Proposed) 🎯
+- **OpenSpec Proposal: implement-native-ffmpeg-driver** 📋
+  - **Phase 2 of Desktop Strategy** (Depends on Phase 1)
+  - **Driver Abstraction Layer**:
+    - Designed `IFFmpegDriver` interface for pluggable implementations
+    - `WasmDriver`: Wrapper around existing FFmpegService
+    - `NativeDriver`: Rust-based system FFmpeg execution
+    - `FFmpegDriverManager`: Auto-selection and switching logic
+  - **Native Execution Capabilities**:
+    - FFmpeg availability detection via Tauri
+    - Temporary workspace management in Rust
+    - File I/O through Tauri commands (write input, read output)
+    - Process execution with progress parsing
+    - Hardware acceleration detection (NVENC, QuickSync, VideoToolbox)
+  - **Auto-Detection System**:
+    - Environment detection (browser vs desktop)
+    - Intelligent driver selection based on availability
+    - User preference support (auto/wasm/native)
+    - Runtime driver switching
+    - Graceful fallback on failures
+  - **Performance Goals**:
+    - 3-5x faster encoding (native CPU vs WASM)
+    - 10-20x faster encoding (native GPU vs WASM)
+    - Unlimited file size support on desktop
+    - Hardware-accelerated encoding (NVENC, QuickSync, VideoToolbox, AMF)
+  - **OpenSpec Compliance**:
+    - 3 capability specifications (driver-abstraction, native-execution, auto-detection)
+    - 15+ requirements with testable scenarios
+    - Passed `openspec validate --strict` validation
+    - 39 task groups across 8 implementation phases
+  - **Estimated Effort**: 4-5 weeks for complete implementation
+  - **Zero Breaking Changes**: Fully backward-compatible addition
+  - **Proposal Location**: `openspec/changes/implement-native-ffmpeg-driver/`
+  - **Status**: ✅ Proposed, awaiting approval and implementation
+
 ### 2025-01-09 (v6.0) - Tauri Desktop Integration 🚀
 - **OpenSpec Proposal: add-tauri-desktop-support** 📋
   - **Minimal Functional Verification Complete** ✅
