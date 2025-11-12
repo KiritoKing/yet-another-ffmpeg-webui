@@ -128,9 +128,73 @@ body {
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
+		/* 平滑的主题切换过渡效果 */
+		transition: background-color 150ms ease-in-out, 
+		            border-color 150ms ease-in-out,
+		            color 150ms ease-in-out;
 	}
 	body {
 		@apply bg-background text-foreground;
+	}
+}
+
+/* Touch Interaction Polish */
+@layer utilities {
+	/* Prevent text size adjustment on iOS */
+	html {
+		-webkit-text-size-adjust: 100%;
+	}
+
+	/* Smooth scrolling on mobile */
+	* {
+		-webkit-overflow-scrolling: touch;
+	}
+
+	/* Touch optimization - disable double-tap zoom */
+	@media (hover: none) and (pointer: coarse) {
+		/* Mobile/touch devices */
+		button, a, [role="button"], input[type="button"], input[type="submit"] {
+			touch-action: manipulation;
+			-webkit-tap-highlight-color: transparent;
+		}
+
+		/* Ensure minimum touch target size (44x44px) */
+		button:not(.touch-target-auto), 
+		a:not(.touch-target-auto), 
+		[role="button"]:not(.touch-target-auto) {
+			min-height: 44px;
+			min-width: 44px;
+		}
+
+		/* Add visual touch feedback */
+		button:active, 
+		a:active, 
+		[role="button"]:active {
+			transform: scale(0.98);
+			transition: transform 50ms ease-in-out;
+		}
+
+		/* Ensure adequate spacing between tap targets */
+		button + button,
+		a + a,
+		button + a,
+		a + button {
+			margin-left: max(8px, 0.5rem);
+		}
+	}
+
+	/* Prevent zoom on input focus (iOS) */
+	@media (max-width: 768px) {
+		input[type="text"],
+		input[type="number"],
+		input[type="email"],
+		input[type="tel"],
+		input[type="url"],
+		input[type="password"],
+		textarea,
+		select {
+			font-size: 16px !important;
+		}
 	}
 }
 

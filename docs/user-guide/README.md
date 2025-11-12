@@ -6,6 +6,8 @@ Welcome to the FFmpeg Easy User Guide! This section contains documentation for e
 
 - [FFmpeg Web Interface](./FFMPEG_WEB.md) - Main application features and usage
 - [Custom Forms](./CUSTOM_FORMS.md) - How to create and use custom form presets
+- [Theme Customization](./THEME_CUSTOMIZATION.md) - Light/dark mode and system theme support
+- [Mobile Usage](./MOBILE_USAGE.md) - Complete guide for mobile devices
 
 ## Features
 

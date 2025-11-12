@@ -140,7 +140,7 @@ export function SettingsDialog({
 	return (
 		<>
 			<Dialog open={open} onOpenChange={onOpenChange}>
-				<DialogContent className="max-w-7xl w-[95vw] max-h-[85vh] p-0 gap-0">
+				<DialogContent className="max-w-[95vw] lg:max-w-7xl w-full lg:w-[95vw] max-h-[85vh] p-0 gap-0">
 					<DialogHeader className="px-6 pt-6 pb-4">
 						<DialogTitle className="flex items-center gap-2">
 							<Settings2 className="w-5 h-5" />
@@ -512,7 +512,7 @@ export function SettingsDialog({
 									<div className="text-center space-y-4">
 										{/* Logo */}
 										<div className="flex justify-center">
-											<div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+											<div className="w-24 h-24 bg-linear-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
 												<span className="text-white text-3xl font-bold">
 													FF
 												</span>

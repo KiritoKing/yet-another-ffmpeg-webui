@@ -212,7 +212,7 @@ export function ProgressLogViewer() {
 							<div className="flex gap-2 flex-wrap">
 								<Badge
 									variant="secondary"
-									className={`gap-1.5 cursor-pointer transition-all hover:opacity-80 ${
+									className={`gap-1.5 cursor-pointer transition-all hover:opacity-80 min-h-11 lg:min-h-0 px-3 lg:px-2 ${
 										selectedType === null ? "ring-2 ring-primary" : ""
 									}`}
 									onClick={() => setSelectedType(null)}
@@ -229,7 +229,7 @@ export function ProgressLogViewer() {
 								{errorLogs.length > 0 && (
 									<Badge
 										variant="destructive"
-										className={`gap-1.5 cursor-pointer transition-all hover:opacity-80 ${
+										className={`gap-1.5 cursor-pointer transition-all hover:opacity-80 min-h-11 lg:min-h-0 px-3 lg:px-2 ${
 											selectedType === "error" ? "ring-2 ring-destructive" : ""
 										}`}
 										onClick={() => handleToggleType("error")}
@@ -241,7 +241,7 @@ export function ProgressLogViewer() {
 								{warningLogs.length > 0 && (
 									<Badge
 										variant="outline"
-										className={`gap-1.5 border-yellow-500 text-yellow-700 cursor-pointer transition-all hover:opacity-80 ${
+										className={`gap-1.5 border-yellow-500 text-yellow-700 cursor-pointer transition-all hover:opacity-80 min-h-11 lg:min-h-0 px-3 lg:px-2 ${
 											selectedType === "warning" ? "ring-2 ring-yellow-500" : ""
 										}`}
 										onClick={() => handleToggleType("warning")}
@@ -258,7 +258,7 @@ export function ProgressLogViewer() {
 									size="sm"
 									onClick={handleCopyLogs}
 									title="复制所有日志"
-									className="h-8 px-2"
+									className="h-11 w-11 lg:h-8 lg:w-auto lg:px-2 p-0 touch-manipulation"
 								>
 									<CopyIcon className="size-4" />
 								</Button>
@@ -267,12 +267,16 @@ export function ProgressLogViewer() {
 									size="sm"
 									onClick={handleClearLogs}
 									title="清空日志"
-									className="h-8 px-2"
+									className="h-11 w-11 lg:h-8 lg:w-auto lg:px-2 p-0 touch-manipulation"
 								>
 									<Trash2Icon className="size-4" />
 								</Button>
 								<CollapsibleTrigger asChild>
-									<Button variant="ghost" size="sm" className="h-8 px-2">
+									<Button
+										variant="ghost"
+										size="sm"
+										className="h-11 w-11 lg:h-8 lg:w-auto lg:px-2 p-0 touch-manipulation"
+									>
 										{isExpanded ? (
 											<ChevronUpIcon className="size-4" />
 										) : (
@@ -285,13 +289,13 @@ export function ProgressLogViewer() {
 
 						{/* 搜索框 */}
 						<div className="relative">
-							<SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+							<SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
 							<Input
 								type="text"
 								placeholder="搜索日志内容、类型或实例ID..."
 								value={searchInput}
 								onChange={(e) => handleSearchChange(e.target.value)}
-								className="pl-9 pr-9 h-9"
+								className="pl-9 pr-9 h-11 lg:h-9 text-base"
 							/>
 							{searchInput && (
 								<Button
@@ -301,7 +305,7 @@ export function ProgressLogViewer() {
 										setSearchInput("");
 										setSearchQuery("");
 									}}
-									className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+									className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 lg:h-7 lg:w-7 p-0 touch-manipulation"
 								>
 									<XIcon className="size-4" />
 								</Button>
@@ -341,7 +345,7 @@ export function ProgressLogViewer() {
 														height: `${virtualItem.size}px`,
 														transform: `translateY(${virtualItem.start}px)`,
 													}}
-													className={`flex items-start gap-2 p-2 rounded font-mono text-xs ${
+													className={`flex items-start gap-2 p-2 rounded font-mono text-sm lg:text-xs ${
 														log.type === "error"
 															? "bg-destructive/10 text-destructive"
 															: log.type === "warning"

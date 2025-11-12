@@ -24,9 +24,11 @@ export function CLIImportDialog({
 }: CLIImportDialogProps) {
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-2xl">
+			<DialogContent className="max-w-[95vw] lg:max-w-2xl p-4 lg:p-6">
 				<DialogHeader>
-					<DialogTitle>从 CLI 导入命令</DialogTitle>
+					<DialogTitle className="text-lg lg:text-xl">
+						从 CLI 命令导入
+					</DialogTitle>
 				</DialogHeader>
 				<div className="space-y-4">
 					<Textarea

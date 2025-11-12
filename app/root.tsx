@@ -176,6 +176,28 @@ export function Layout({ children }: { children: React.ReactNode }) {
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<Meta />
 				<Links />
+				{/* 主题初始化脚本 - 防止 FOUC (Flash of Unstyled Content) */}
+				<script
+					// biome-ignore lint/security/noDangerouslySetInnerHtml: Required for theme initialization before React hydration
+					dangerouslySetInnerHTML={{
+						__html: `
+							(function() {
+								try {
+									const theme = localStorage.getItem('ffmpeg-easy-theme');
+									const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+									const shouldBeDark = theme === 'dark' || 
+										(theme === 'system' && systemDark) || 
+										(!theme && systemDark);
+									if (shouldBeDark) {
+										document.documentElement.classList.add('dark');
+									}
+								} catch (e) {
+									// Silently fail if localStorage is not available
+								}
+							})();
+						`,
+					}}
+				/>
 				{/* 结构化数据 */}
 				<script
 					type="application/ld+json"

@@ -114,27 +114,35 @@ export function QueueControlPanel({
 		<Card className="p-6">
 			<div className="space-y-4">
 				{/* 标题和控制 */}
-				<div className="flex items-center justify-between">
+				<div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
 					<div>
 						<h3 className="text-xl font-bold">任务队列</h3>
 						<p className="text-sm text-gray-500">
-							{queue.length} 个任务等待中，{executingTasks.length} 个正在执行
+							添加多个任务到队列并批量处理
 						</p>
 					</div>
 
-					<div className="flex gap-2">
+					<div className="flex flex-col lg:flex-row gap-2">
 						{!isProcessing && !isStarting ? (
-							<Button onClick={onStart} disabled={queue.length === 0} size="sm">
+							<Button
+								onClick={onStart}
+								disabled={queue.length === 0}
+								className="min-h-11 w-full lg:w-auto"
+							>
 								<Play className="w-4 h-4 mr-2" />
-								开始处理
+								开始处理队列 ({queue.length})
 							</Button>
 						) : isStarting ? (
-							<Button disabled size="sm">
+							<Button disabled className="min-h-11 w-full lg:w-auto">
 								<Loader2 className="w-4 h-4 mr-2 animate-spin" />
 								准备中...
 							</Button>
 						) : (
-							<Button onClick={onStop} variant="destructive" size="sm">
+							<Button
+								onClick={onStop}
+								variant="destructive"
+								className="min-h-11 w-full lg:w-auto"
+							>
 								<Square className="w-4 h-4 mr-2" />
 								停止
 							</Button>
@@ -143,25 +151,29 @@ export function QueueControlPanel({
 						<Button
 							onClick={onClear}
 							variant="outline"
-							size="sm"
+							className="min-h-11 w-full lg:w-auto"
 							disabled={isProcessing || queue.length === 0}
 						>
 							<Trash2 className="w-4 h-4 mr-2" />
-							清空队列
+							清空
 						</Button>
 					</div>
 				</div>
 
 				{/* 批处理大小设置 */}
-				<div className="flex items-center gap-4 p-3 bg-gray-100 dark:bg-gray-800 rounded">
-					<Settings className="w-4 h-4" />
-					<Label htmlFor="batch-size">并发数:</Label>
+				<div className="flex flex-col lg:flex-row lg:items-center gap-4 p-4 bg-gray-100 dark:bg-gray-800 rounded">
+					<div className="flex items-center gap-2">
+						<Settings className="w-4 h-4" />
+						<Label htmlFor="batch-size" className="text-base font-semibold">
+							并发数:
+						</Label>
+					</div>
 					<Select
 						value={batchSize.toString()}
 						onValueChange={(value) => onBatchSizeChange(Number(value))}
 						disabled={isProcessing}
 					>
-						<SelectTrigger id="batch-size" className="w-24">
+						<SelectTrigger id="batch-size" className="w-full lg:w-24 min-h-11">
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
@@ -223,22 +235,25 @@ export function QueueControlPanel({
 							{queue.map((task, index) => (
 								<div
 									key={task.id}
-									className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded"
+									className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded gap-2"
 								>
-									<div className="flex-1">
+									<div className="flex-1 min-w-0">
 										<div className="flex items-center gap-2">
 											<span className="text-sm text-gray-500">
 												#{index + 1}
 											</span>
-											<span className="font-medium">{task.presetName}</span>
+											<span className="font-medium truncate">
+												{task.presetName}
+											</span>
 										</div>
-										<div className="text-sm text-gray-500">
+										<div className="text-sm text-gray-500 truncate">
 											{task.inputFiles.map((f) => f.name).join(", ")}
 										</div>
 									</div>
 									<Button
 										variant="ghost"
-										size="sm"
+										size="icon"
+										className="min-w-11 min-h-11 shrink-0"
 										onClick={() => onRemoveTask(task.id)}
 										disabled={isProcessing}
 									>
@@ -273,28 +288,31 @@ export function QueueControlPanel({
 								return (
 									<div
 										key={task.id}
-										className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded"
+										className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded gap-2"
 									>
-										<div className="flex-1">
-											<div className="flex items-center gap-2">
-												<CheckCircle className="w-4 h-4 text-green-600" />
-												<span className="font-medium">{task.presetName}</span>
+										<div className="flex-1 min-w-0">
+											<div className="flex items-center gap-2 flex-wrap">
+												<CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
+												<span className="font-medium truncate">
+													{task.presetName}
+												</span>
 												{task.outputSize && (
-													<span className="text-sm text-gray-500">
+													<span className="text-sm text-gray-500 shrink-0">
 														{(task.outputSize / 1024 / 1024).toFixed(2)} MB
 													</span>
 												)}
 											</div>
-											<div className="text-sm text-gray-500">
+											<div className="text-sm text-gray-500 truncate">
 												{task.inputFiles.map((f) => f.name).join(", ")} →{" "}
 												{task.outputFileName}
 											</div>
 										</div>
-										<div className="flex gap-1">
+										<div className="flex gap-1 shrink-0">
 											{canPreview && (
 												<Button
 													variant="ghost"
-													size="sm"
+													size="icon"
+													className="min-w-11 min-h-11"
 													onClick={() => setPreviewTaskId(task.id)}
 													title="预览"
 												>
@@ -304,7 +322,8 @@ export function QueueControlPanel({
 											{onDownloadResult && (
 												<Button
 													variant="ghost"
-													size="sm"
+													size="icon"
+													className="min-w-11 min-h-11"
 													onClick={() => onDownloadResult(task.id)}
 													title="下载"
 												>
