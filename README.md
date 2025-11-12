@@ -78,8 +78,31 @@
 
 ## 🚀 快速开始
 
-### 📦 本地开发
+### 🌐 在线体验
 
+访问 [ffmpeg-easy.vercel.app](https://ffmpeg-easy.vercel.app) 立即使用，无需安装！
+
+### 💻 桌面应用（新功能）
+
+下载原生桌面应用，获得更好的性能和系统集成：
+
+| 平台 | 下载 | 要求 |
+|------|------|------|
+| 🍎 **macOS** | [下载 .dmg](https://github.com/KiritoKing/yet-another-ffmpeg-webui/releases) | macOS 10.15+ |
+| 🪟 **Windows** | [下载 .exe](https://github.com/KiritoKing/yet-another-ffmpeg-webui/releases) | Windows 10+ |
+| 🐧 **Linux** | [下载 .AppImage](https://github.com/KiritoKing/yet-another-ffmpeg-webui/releases) | GTK3 |
+
+**桌面版特性**：
+- ✅ 与 Web 版功能完全相同
+- ✅ 本地安装，无需浏览器
+- ✅ 为未来原生 FFmpeg 集成做准备（Phase 2）
+- ✅ 更好的系统集成体验
+
+> � 查看 [桌面开发指南](./docs/dev-guide/TAURI_DEVELOPMENT.md) 了解更多详情
+
+### �📦 本地开发
+
+**Web 版本**:
 ```bash
 # 克隆仓库
 git clone https://github.com/KiritoKing/yet-another-ffmpeg-webui.git
@@ -93,6 +116,22 @@ pnpm dev
 ```
 
 访问 `http://localhost:5173` 即可开始使用 🎉
+
+**桌面版本**:
+```bash
+# 前提：已安装 Rust (https://rustup.rs/)
+
+# 开发模式（需要两个终端）
+# 终端 1: 启动 Vite
+pnpm dev
+
+# 终端 2: 启动 Tauri
+pnpm dev:tauri
+
+# 构建桌面应用
+pnpm build:tauri
+# 输出: src-tauri/target/release/bundle/
+```
 
 ### 🐳 Docker 快速部署
 

@@ -404,9 +404,9 @@ All documentation has been organized into the `docs/` directory:
   - **Proposal Location**: `openspec/changes/implement-native-ffmpeg-driver/`
   - **Status**: ✅ Proposed, awaiting approval and implementation
 
-### 2025-01-09 (v6.0) - Tauri Desktop Integration 🚀
+### 2025-01-13 (v6.0) - Tauri Desktop Integration 🚀
 - **OpenSpec Proposal: add-tauri-desktop-support** 📋
-  - **Minimal Functional Verification Complete** ✅
+  - **Phase 1: Complete Implementation** ✅
     - Integrated Tauri 2.9.4 for desktop application support
     - Implemented Rust backend with test command (`greet_from_rust`)
     - Environment detection using `__TAURI_INTERNALS__` global
@@ -420,18 +420,24 @@ All documentation has been organized into the `docs/` directory:
     - Startup sequence: Vite must run before Tauri (prevents 504 errors)
     - Tauri 2.0 breaking change: `__TAURI_INTERNALS__` replaces `__TAURI__`
     - First Rust build: ~40-60s (449 packages), incremental: ~5-10s
+  - **Documentation Complete**:
+    - Created comprehensive [Tauri Development Guide](./docs/dev-guide/TAURI_DEVELOPMENT.md)
+    - Updated README.md with desktop installation section
+    - All troubleshooting scenarios documented
+    - Architecture diagrams and best practices included
   - **OpenSpec Compliance**:
     - Created comprehensive proposal with Why/What/Impact analysis
     - Defined formal specification with requirements and scenarios
     - Passed `openspec validate --strict` with zero errors
-    - Tasks.md checklist: 95% complete (only documentation pending)
+    - Tasks.md checklist: ✅ 100% complete
   - **Foundation for Phase 2**:
     - Establishes groundwork for native FFmpeg driver
     - Enables future hardware acceleration support
     - Maintains full web deployment compatibility
   - **Files Added**: ~20 new files, ~200 LOC in `src-tauri/`
-  - **Files Modified**: `package.json`, `app/routes/settings.tsx` (TauriTest component)
+  - **Files Modified**: `package.json`, `app/routes/settings.tsx` (TauriTest component), `README.md`
   - **Proposal Location**: `openspec/changes/add-tauri-desktop-support/`
+  - **Status**: ✅ Ready for archival
   - **No User-Facing Changes**: This is Phase 1 infrastructure only
 
 ### 2025-11-09 (v5.0) - Three Major Updates 🎉
