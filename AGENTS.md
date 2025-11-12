@@ -369,6 +369,36 @@ All documentation has been organized into the `docs/` directory:
 
 ## 更新日志
 
+### 2025-01-09 (v6.0) - Tauri Desktop Integration 🚀
+- **OpenSpec Proposal: add-tauri-desktop-support** 📋
+  - **Minimal Functional Verification Complete** ✅
+    - Integrated Tauri 2.9.4 for desktop application support
+    - Implemented Rust backend with test command (`greet_from_rust`)
+    - Environment detection using `__TAURI_INTERNALS__` global
+    - Verified Rust↔JavaScript communication working correctly
+  - **Infrastructure Established**:
+    - Created `src-tauri/` directory with complete Rust project structure
+    - Configured `tauri.conf.json` for dual deployment (web + desktop)
+    - Added `dev:tauri` and `build:tauri` npm scripts
+    - Set up application icons and metadata
+  - **Key Learnings Documented**:
+    - Startup sequence: Vite must run before Tauri (prevents 504 errors)
+    - Tauri 2.0 breaking change: `__TAURI_INTERNALS__` replaces `__TAURI__`
+    - First Rust build: ~40-60s (449 packages), incremental: ~5-10s
+  - **OpenSpec Compliance**:
+    - Created comprehensive proposal with Why/What/Impact analysis
+    - Defined formal specification with requirements and scenarios
+    - Passed `openspec validate --strict` with zero errors
+    - Tasks.md checklist: 95% complete (only documentation pending)
+  - **Foundation for Phase 2**:
+    - Establishes groundwork for native FFmpeg driver
+    - Enables future hardware acceleration support
+    - Maintains full web deployment compatibility
+  - **Files Added**: ~20 new files, ~200 LOC in `src-tauri/`
+  - **Files Modified**: `package.json`, `app/routes/settings.tsx` (TauriTest component)
+  - **Proposal Location**: `openspec/changes/add-tauri-desktop-support/`
+  - **No User-Facing Changes**: This is Phase 1 infrastructure only
+
 ### 2025-11-09 (v5.0) - Three Major Updates 🎉
 - **Store Refactoring Complete** ✨
   - Restructured all stores into subdirectories (types/index/default-values)
