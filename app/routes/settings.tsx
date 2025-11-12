@@ -3,6 +3,7 @@
  * 移动端专用设置页面，平铺所有设置项
  */
 
+import { invoke } from "@tauri-apps/api/core";
 import {
 	Activity,
 	ArrowLeft,
@@ -39,6 +40,80 @@ import { useCDNStore } from "../store/cdn";
 import { useCommandStore } from "../store/command";
 import { useFFmpegWebStore } from "../store/ffmpegWeb";
 import { useTaskStore } from "../store/task";
+
+/**
+ * Tauri 集成测试组件
+ */
+function TauriTest() {
+	const [result, setResult] = useState<string>("");
+	const [isLoading, setIsLoading] = useState(false);
+
+	const testTauriCommand = async () => {
+		try {
+			setIsLoading(true);
+			setResult("调用中...");
+
+			// 检测是否在 Tauri 环境中 (Tauri 2.0 使用 __TAURI_INTERNALS__)
+			const isTauri = "__TAURI_INTERNALS__" in window;
+			if (!isTauri) {
+				setResult("⚠️ 未在 Tauri 环境中运行");
+				return;
+			}
+
+			// 调用 Rust 命令
+			const response = await invoke<string>("greet_from_rust", {
+				name: "FFmpeg Easy",
+			});
+			setResult(`✅ ${response}`);
+			toast.success("Tauri 通信成功！");
+		} catch (error) {
+			const errMsg = error instanceof Error ? error.message : "Unknown error";
+			setResult(`❌ 错误: ${errMsg}`);
+			toast.error("Tauri 通信失败");
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	return (
+		<section className="space-y-4">
+			<div className="flex items-center gap-2">
+				<Rocket className="w-5 h-5 text-primary" />
+				<h2 className="text-lg font-semibold">Tauri 集成测试</h2>
+				<Badge variant="outline" className="ml-auto">
+					实验性功能
+				</Badge>
+			</div>
+			<p className="text-sm text-muted-foreground">
+				测试 Tauri 后端通信是否正常工作
+			</p>
+
+			<Card className="p-4 space-y-4">
+				<Button
+					onClick={testTauriCommand}
+					disabled={isLoading}
+					className="w-full min-h-11"
+				>
+					<Rocket className="w-4 h-4 mr-2" />
+					{isLoading ? "测试中..." : "测试 Tauri 命令"}
+				</Button>
+
+				{result && (
+					<div className="p-3 bg-muted rounded-lg">
+						<p className="text-sm font-mono wrap-break-word">{result}</p>
+					</div>
+				)}
+
+				<div className="text-xs text-muted-foreground">
+					<p>
+						<strong>环境检测：</strong>
+						{"__TAURI_INTERNALS__" in window ? "✅ Tauri 环境" : "⚠️ Web 环境"}
+					</p>
+				</div>
+			</Card>
+		</section>
+	);
+}
 
 /**
  * 移动端设置页面
@@ -127,6 +202,9 @@ export default function MobileSettings() {
 
 			{/* 设置内容（平铺布局） */}
 			<div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
+				{/* Tauri 集成测试 */}
+				<TauriTest />
+
 				{/* 通用设置 */}
 				<section className="space-y-4">
 					<div className="flex items-center gap-2">

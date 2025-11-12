@@ -7,6 +7,7 @@ import { headersPlugin } from "./vite-plugin-headers";
 export default defineConfig({
 	plugins: [headersPlugin(), tailwindcss(), reactRouter(), tsconfigPaths()],
 	optimizeDeps: {
+		include: ["@tauri-apps/api", "react", "react-dom"],
 		exclude: ["@ffmpeg/ffmpeg", "@ffmpeg/util"],
 	},
 });

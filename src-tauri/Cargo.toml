@@ -1,0 +1,22 @@
+[package]
+name = "ffmpeg-easy"
+version = "0.1.0"
+description = "A Tauri App for FFmpeg operations"
+authors = ["you"]
+edition = "2021"
+
+[lib]
+name = "ffmpeg_easy_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "ffmpeg-easy"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.0.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0.0", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
